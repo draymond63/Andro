@@ -7,16 +7,9 @@ import os
 mnist = tf.keras.datasets.mnist
 (x_train, y_train), (x_test, y_test) = mnist.load_data()
 
-# Reshape data for CNN (images, height, width, channels)
-# x_train = x_train.reshape((60000, 28, 28, 1))
-# x_test = x_test.reshape((10000, 28, 28, 1))
-
 # Normalize input to be between [-1, 1]
-x_train = x_train / 127.5 - 1 # If the data type is wrong
+x_train = x_train / 127.5 - 1
 x_test = x_test / 127.5 - 1
-# Normalize input to be between [0, 1]
-# x_train = x_train / 255 # If the data type is wrong
-# x_test = x_test / 255
 
 # 81 kB required minimum
 model = tf.keras.models.Sequential([
@@ -33,15 +26,11 @@ model = tf.keras.models.Sequential([
         kernel_constraint="weight_clip",
         activation="softmax"
     ),
-    # lq.layers.QuantDense(10,
-    #     # input_quantizer="ste_sign",
-    #     activation="softmax"
-    # )
 ])
 
 # Create callback to store the NN after each epoch
 saveNN = tf.keras.callbacks.ModelCheckpoint(
-    "./test.h5", # Creates unparsable h5 file (tensorflowjs_converter --input_format=keras ./test.h5 ./model.json)
+    "./test.h5", # Creates unparsable h5 file 
     monitor='accuracy', 
     verbose=0, 
     save_best_only=True,
