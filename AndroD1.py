@@ -3,13 +3,15 @@ from tensorflow import keras
 import larq as lq
 import h5py
 
-with h5py.File('test.h5', 'r') as f:
+with h5py.File('test.h5', 'r') as net:
     # List all groups
-    print(f"Keys: {f.keys()}")
-    a_group_key = list(f.keys())[0]
+    print(f"Keys: {net.keys()}")
+    weights_key = list(net.keys())[1]
 
     # Get the data
-    data = list(f[a_group_key])
+    data = list(net[weights_key])
 
-for i in data:
-    print(f"{i}:\t{data}")
+    # model = tf.keras.models.load_model('test.h5')
+
+# print(model)
+

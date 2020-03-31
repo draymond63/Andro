@@ -43,7 +43,7 @@ saveNN = tf.keras.callbacks.ModelCheckpoint(
 model.build(x_train.shape)
 model.summary()
 
-# Compile model XXX EXPLAIN?
+# Compile model - duh
 model.compile(
     optimizer='adam',
     loss='sparse_categorical_crossentropy',
@@ -53,7 +53,7 @@ model.compile(
 # Train the NN
 history = model.fit(x_train, y_train, 
     batch_size=64, 
-    epochs=500,
+    epochs=5, # 500
     callbacks=[saveNN]
 )
 
