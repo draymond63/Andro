@@ -3,9 +3,7 @@
 # ABOUT : Creates the intial NN and prints out all the weights to be saved in an external file
 
 import tensorflow as tf
-from tensorflow import keras
 import larq as lq
-import os
 
 print ("# Starting Andro NN")
 
@@ -49,7 +47,7 @@ saveNN = tf.keras.callbacks.ModelCheckpoint(
 model.build(x_train.shape)
 # model.summary()
 
-# Compile model - sets key parameters for model.fit
+# Compile model - sets key parameters for model.fit/evaluate
 model.compile(
     optimizer='adam',
     loss='sparse_categorical_crossentropy',
@@ -75,31 +73,7 @@ history = model.fit(x_train, y_train,
 test_loss, test_acc = model.evaluate(x_test, y_test, verbose=0)
 print(f"# Test accuracy {test_acc * 100:.2f} %")
 
-
-def save_weights(name):
-    with open(name, 'w') as output:
-        print(f"weights = [", file=output)
-        for i, layer in enumerate(model.layers):
-            if i: # Ignore first layer
-                weights = layer.get_weights()
-                weights = weights[0]
-                print("# -------------------------------- LAYER", i, "------------------", file=output)
-                print(weights.tolist(), ",", file=output)
-        print("]\n", file=output)
-
-        print(f"biases = [", file=output)
-        for i, layer in enumerate(model.layers):
-            if i: # Ignore first layer
-                weights = layer.get_weights()
-                biases = weights[1]
-                print("# -------------------------------- LAYER", i, "------------------", file=output)
-                print(biases.tolist(), ",", file=output)
-        print("]", file=output)
-
-# save_weights("test.py")
-
-
-print(f"weights = [")
+print("weights = [")
 for i, layer in enumerate(model.layers):
     if i: # Ignore first layer
         weights = layer.get_weights()
@@ -108,7 +82,7 @@ for i, layer in enumerate(model.layers):
         print(weights.tolist(), ",")
 print("]\n")
 
-print(f"biases = [")
+print("biases = [")
 for i, layer in enumerate(model.layers):
     if i: # Ignore first layer
         weights = layer.get_weights()
@@ -116,9 +90,3 @@ for i, layer in enumerate(model.layers):
         print("# -------------------------------- LAYER", i, "------------------")
         print(biases.tolist(), ",")
 print("]")
-
-
-
-# Test on a single image
-
-# model.save('./test2.h5')

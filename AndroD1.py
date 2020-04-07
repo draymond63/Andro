@@ -23,9 +23,16 @@ model = tf.keras.models.Sequential([
     )
 ])
 for i, layer in enumerate(model.layers):
-    tf.print(layer)
     temp_weights = np.asarray(weights[i], dtype=np.float32)
     temp_biases = np.asarray(biases[i], dtype=np.float32)
+
+    # Polarize every weight
+    for x, node in enumerate(temp_weights):
+        for y, weight in enumerate(node):
+            if weight > 0:
+                temp_weights[x][y] = 1
+            else:
+                temp_weights[x][y] = -1
 
     temp = [temp_weights, temp_biases]
     layer.set_weights(temp)
@@ -43,5 +50,9 @@ model.compile(
     metrics=['accuracy']
 )
 
-test_loss, test_acc = model.evaluate(x_train, y_train)
+test_loss1, test_acc1 = model.evaluate(x_train, y_train, verbose=0)
+test_loss2, test_acc2 = model.evaluate(x_test, y_test, verbose=0)
+
+test_acc = (test_acc1 * len(x_train) + test_acc2 * len(x_test)) / (len(x_train) + len(x_test))
+
 print(f"Test accuracy {test_acc * 100:.2f} %")
