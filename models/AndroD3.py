@@ -2,18 +2,14 @@
 # DATE  : 2020-04-07
 # ABOUT : Hand-done multiplication to remove numpy from the project (About 1124x slower than D0)
 
-import os
-import sys
-sys.path.append('c:\\Users\\dan\\Desktop\\Projects\\Andro\\src')
-
 # Supress Tensorflow dll warning
+import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-from weights_transpose import weights, biases, mnist
+from src.weights_transpose import weights, biases, mnist
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 from tqdm import tqdm
 
 # * STRUCTURE OF WEIGHTS - LAYER : NODE : WEIGHT TO PREVIOUS LAYER
-# print(weights[0][0][0])
 
 (x_train, y_train), (x_test, y_test) = mnist
 
@@ -57,7 +53,7 @@ def model(image):
             for data, weight in zip(input_layer, node_weights):
                 node_val += weight * data
             # Add bias and add value to new layer
-            # node_val += node_bias
+            node_val += node_bias
             output_layer.append(node_val)
         # Current layer becomes the input for the next one
         input_layer = output_layer
@@ -98,7 +94,7 @@ def test_model(images, answers, bar=True):
         pbar.close()
     return (correct, incorrect, len(images))
 
-length = 10000
+length = 10
 print(f"Testing model with {length} image{'s' if length != 1 else ''}")
 correct, incorrect, total = test_model(x_test[:length], y_test[:length], bar=True)
 print("Accuracy: ", correct/total * 100, "%")

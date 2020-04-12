@@ -2,13 +2,10 @@
 # DATE  : 2020-04-06
 # ABOUT : Hand-done multiplication using numpy to remove tensorflow from project
 
-import os
-import sys
-sys.path.append('c:\\Users\\dan\\Desktop\\Projects\\Andro\\src')
-
 # Supress Tensorflow dll warning
+import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-from weights import weights, biases, mnist
+from src.weights import weights, biases, mnist
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 import numpy as np
 from tqdm import tqdm

@@ -2,16 +2,13 @@
 # DATE  : 2020-04-06
 # ABOUT : Proves weights & biases file works by creating a keras model that uses them
 
-import os
-import sys
-sys.path.append('c:\\Users\\dan\\Desktop\\Projects\\Andro\\src')
-
 # Supress Tensorflow dll warning
+import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 import numpy as np
-from weights import weights, biases, mnist
+from src.weights import weights, biases, mnist
 
 # * STRUCTURE OF WEIGHTS - LAYER : NODE : WEIGHT TO PREVIOUS LAYER
 
