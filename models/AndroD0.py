@@ -92,5 +92,5 @@ def save_model(name, weight_transpose=False):
         file.write("]\n")
 
 # * UNCOMMENT TO OVERWRITE CURRENT MODEL
-save_model('weights')
-save_model('weights_transpose', weight_transpose=True)
+# save_model('weights')
+# save_model('weights_transpose', weight_transpose=True)
