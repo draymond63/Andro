@@ -9,8 +9,6 @@ import tensorflow as tf
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 import larq as lq
 
-print ("# Starting Andro NN")
-
 # Training data
 mnist = tf.keras.datasets.mnist
 (x_train, y_train), (x_test, y_test) = mnist.load_data()
@@ -58,12 +56,10 @@ model.compile(
     metrics=['accuracy']
 )
 
-print ("# Training NN")
 # Train the NN
 history = model.fit(x_train, y_train, 
     batch_size=64, 
-    epochs=500,
-    verbose=0
+    epochs=5,
     # callbacks=[saveNN]
 )
 
@@ -74,32 +70,35 @@ history = model.fit(x_train, y_train,
 # lq.models.summary(model)
 
 # See how accurate the NN is
-test_loss, test_acc = model.evaluate(x_test, y_test, verbose=0)
-print(f"# Test accuracy {test_acc * 100:.2f} %")
+test_loss, test_acc = model.evaluate(x_test, y_test)
+print(f"Test accuracy {test_acc * 100:.2f} %")
 
-def save_data():
-    print("# Training data")
-    print("import tensorflow as tf")
-    print("mnist = tf.keras.datasets.mnist.load_data()\n")
+def save_model(name):
+    with open(f'{name}.py', 'w') as file:
+        # Save mnist in file
+        file.write("# Training data\n")
+        file.write("import tensorflow as tf\n")
+        file.write("mnist = tf.keras.datasets.mnist.load_data()\n\n")
 
-def save_model():
-    print("weights = [")
-    for i, layer in enumerate(model.layers):
-        if i: # Ignore first layer
-            weights = layer.get_weights()
-            weights = weights[0]
-            print("# -------------------------------- LAYER", i, "------------------")
-            print(weights.tolist(), ",")
-    print("]\n")
+        # Save weights and biases
+        file.write(f"# Test accuracy {test_acc * 100:.2f} %\n")
+        file.write("weights = [\n")
+        for i, layer in enumerate(model.layers):
+            if i: # Ignore first layer
+                weights = layer.get_weights()
+                weights = weights[0]
+                file.write(f"# -------------------------------- LAYER {i} ------------------\n")
+                file.write(f"{weights.tolist()}, \n")
+        file.write("]\n\n")
 
-    print("biases = [")
-    for i, layer in enumerate(model.layers):
-        if i: # Ignore first layer
-            weights = layer.get_weights()
-            biases = weights[1]
-            print("# -------------------------------- LAYER", i, "------------------")
-            print(biases.tolist(), ",")
-    print("]")
+        file.write("biases = [\n")
+        for i, layer in enumerate(model.layers):
+            if i: # Ignore first layer
+                weights = layer.get_weights()
+                biases = weights[1]
+                file.write(f"# -------------------------------- LAYER {i} ------------------\n")
+                file.write(f"{biases.tolist()}, \n")
+        file.write("]\n")
 
-save_data()
-save_model()
+# * UNCOMMENT TO OVERWRITE CURRENT MODEL
+# save_model('weights')
