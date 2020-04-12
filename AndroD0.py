@@ -59,7 +59,7 @@ model.compile(
 # Train the NN
 history = model.fit(x_train, y_train, 
     batch_size=64, 
-    epochs=5,
+    epochs=1,
     # callbacks=[saveNN]
 )
 
@@ -73,12 +73,12 @@ history = model.fit(x_train, y_train,
 test_loss, test_acc = model.evaluate(x_test, y_test)
 print(f"Test accuracy {test_acc * 100:.2f} %")
 
-def save_model(name):
+def save_model(name, weight_transpose=False):
     with open(f'{name}.py', 'w') as file:
         # Save mnist in file
         file.write("# Training data\n")
-        file.write("import tensorflow as tf\n")
-        file.write("mnist = tf.keras.datasets.mnist.load_data()\n\n")
+        file.write("from tensorflow.keras.datasets import mnist\n")
+        file.write("mnist = mnist.load_data()\n\n")
 
         # Save weights and biases
         file.write(f"# Test accuracy {test_acc * 100:.2f} %\n")
@@ -88,6 +88,9 @@ def save_model(name):
                 weights = layer.get_weights()
                 weights = weights[0]
                 file.write(f"# -------------------------------- LAYER {i} ------------------\n")
+                # Need to reverse the shape these are packed in order to be stored in EEPROM correctly (for non-numpy versions)
+                if weight_transpose:
+                    weights = weights.transpose()
                 file.write(f"{weights.tolist()}, \n")
         file.write("]\n\n")
 
@@ -102,3 +105,4 @@ def save_model(name):
 
 # * UNCOMMENT TO OVERWRITE CURRENT MODEL
 # save_model('weights')
+save_model('weights_transpose', weight_transpose=True)
