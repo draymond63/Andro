@@ -16,12 +16,12 @@ Removes Tensorflow by handling all data with pure numpy.
 Removes numpy by treating doing multiplication by hand, thinking about NN as layers rather than
 a series of matrices.
 ### D4
-Uses packed weights to 
+Uses packed weights to ensure data_packed.py is correct. Uses bitwise operators.
 ### D5
-Uses sim directory to emulate the circuit as closely as possible
+Uses sim directory to emulate the circuit as closely as possible.
 
 ## Source (src)
-This directory the shape and data required for the models to function. This includes weights,
+This directory contains the shape and data required for the models to function. This includes weights,
 biases, input data, and all of their packed versions.
 
 ## Tools
