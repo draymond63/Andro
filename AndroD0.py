@@ -2,7 +2,11 @@
 # DATE  : 2020-03-27
 # ABOUT : Creates the intial NN and prints out all the weights to be saved in an external file
 
+# Supress Tensorflow dll warning
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 import larq as lq
 
 print ("# Starting Andro NN")
@@ -73,20 +77,29 @@ history = model.fit(x_train, y_train,
 test_loss, test_acc = model.evaluate(x_test, y_test, verbose=0)
 print(f"# Test accuracy {test_acc * 100:.2f} %")
 
-print("weights = [")
-for i, layer in enumerate(model.layers):
-    if i: # Ignore first layer
-        weights = layer.get_weights()
-        weights = weights[0]
-        print("# -------------------------------- LAYER", i, "------------------")
-        print(weights.tolist(), ",")
-print("]\n")
+def save_data():
+    print("# Training data")
+    print("import tensorflow as tf")
+    print("mnist = tf.keras.datasets.mnist.load_data()\n")
 
-print("biases = [")
-for i, layer in enumerate(model.layers):
-    if i: # Ignore first layer
-        weights = layer.get_weights()
-        biases = weights[1]
-        print("# -------------------------------- LAYER", i, "------------------")
-        print(biases.tolist(), ",")
-print("]")
+def save_model():
+    print("weights = [")
+    for i, layer in enumerate(model.layers):
+        if i: # Ignore first layer
+            weights = layer.get_weights()
+            weights = weights[0]
+            print("# -------------------------------- LAYER", i, "------------------")
+            print(weights.tolist(), ",")
+    print("]\n")
+
+    print("biases = [")
+    for i, layer in enumerate(model.layers):
+        if i: # Ignore first layer
+            weights = layer.get_weights()
+            biases = weights[1]
+            print("# -------------------------------- LAYER", i, "------------------")
+            print(biases.tolist(), ",")
+    print("]")
+
+save_data()
+save_model()

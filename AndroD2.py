@@ -1,27 +1,45 @@
 # AUTHOR: Daniel Raymond
 # DATE  : 2020-04-06
-# ABOUT : Hand-done multiplication using numpy to remove tensorflow from project (except for dataset)
+# ABOUT : Hand-done multiplication using numpy to remove tensorflow from project
 
-import tensorflow as tf
+# Supress Tensorflow dll warning
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+from weights import weights, biases, mnist
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 import numpy as np
-from weights import weights, biases
+from tqdm import tqdm
 
-# STRUCTURE - LAYER : NODE : WEIGHT TO PREVIOUS LAYER INDEX
-# print(weights[0][0][0])
+# * STRUCTURE OF WEIGHTS - LAYER : NODE : WEIGHT TO PREVIOUS LAYER
 
-mnist = tf.keras.datasets.mnist
-(x_train, y_train), (x_test, y_test) = mnist.load_data()
+(x_train, y_train), (x_test, y_test) = mnist
 
-def model(image):
-    layer = [image]
-    for i in range(len(weights)):
-        layer_weights = np.array(weights[i], dtype=np.float32)
-        layer.append(np.matmul(layer[-1], layer_weights))
+# ! Quantizing makes it shit the bed (So it's definitely wrong)
+def quantize(layer):
+    # mapElement = lambda x: 1 if x >= 0 else -1
+    # vfunc = np.vectorize(mapElement)
+    
+    # return vfunc(layer) # Convert each layer to -1 or 1
+    return layer
 
-    # Return actual guess instead of encoded probability vector
-    answer = layer[-1][0][0] # Start off guessing it is zero
+def model(image, use_biases=True):
+    layer = quantize(image)
+    for layer_weights, layer_biases in zip(weights, biases):
+        layer_weights = np.array(layer_weights, dtype=np.float32)
+        # Stil 78.72% accuracy without biases? (Same as with)
+        if use_biases: 
+            layer_biases = np.array(layer_biases, dtype=np.float32)
+        else:
+            layer_biases = 0
+        layer = np.matmul(layer, layer_weights) + layer_biases
+        # Quantize all but the last layer
+        if len(layer[0]) != 10:
+            layer = quantize(layer)
+
+    # Return actual guess instead of encoded logits vector
+    answer = layer[0][0] # Start off guessing it is zero
     index = 0
-    for i, challenger in enumerate(layer[-1][0]):
+    for i, challenger in enumerate(layer[0]):
         if challenger >= answer:
             answer = challenger
             index = i
@@ -29,22 +47,25 @@ def model(image):
     # return index
     return index
 
-def test_model(images, answers):
+def test_model(images, answers, use_biases=True):
     correct = 0
     incorrect = 0
+    pbar = tqdm(total=len(answers))
     for image, answer in zip(images, answers):
         # Flatten image for model
         img = image.reshape([1, -1])
-        # Use model to make a prediction
-        guess = model(img)
+        # * Use model to make a prediction
+        guess = model(img, use_biases)
+        pbar.update(n=1)
         # Evaluate
         if guess == answer:
             correct += 1
         else:
             incorrect += 1
-    
-    return (correct, incorrect, len(images))
+    pbar.close()
+    return (correct, incorrect, correct + incorrect)
 
-print("Starting model")
-correct, incorrect, total = test_model(x_test, y_test)
+length = 1000
+print(f"Testing model with {length} image{'s' if length != 1 else ''}")
+correct, incorrect, total = test_model(x_test[:length], y_test[:length])
 print(correct/total * 100, "%")

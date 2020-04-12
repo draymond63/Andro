@@ -2,15 +2,17 @@
 # DATE  : 2020-04-06
 # ABOUT : Proves weights & biases file works by creating a keras model that uses them
 
+# Supress Tensorflow dll warning
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 import numpy as np
-from weights import weights, biases
+from weights import weights, biases, mnist
 
-# STRUCTURE - LAYER : NODE : WEIGHT TO PREVIOUS LAYER INDEX
-# print(weights[0][0][0])
+# * STRUCTURE OF WEIGHTS - LAYER : NODE : WEIGHT TO PREVIOUS LAYER
 
-mnist = tf.keras.datasets.mnist
-(x_train, y_train), (x_test, y_test) = mnist.load_data()
+(x_train, y_train), (x_test, y_test) = mnist
 
 
 # Make and load new model
