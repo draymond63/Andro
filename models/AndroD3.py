@@ -1,6 +1,6 @@
 # AUTHOR: Daniel Raymond
 # DATE  : 2020-04-07
-# ABOUT : Hand-done multiplication to remove numpy from the project
+# ABOUT : Hand-done multiplication to remove numpy from the project (About 1124x slower than D0)
 
 import os
 import sys
@@ -8,7 +8,7 @@ sys.path.append('c:\\Users\\dan\\Desktop\\Projects\\Andro\\src')
 
 # Supress Tensorflow dll warning
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-from weights import weights, biases, mnist
+from weights_transpose import weights, biases, mnist
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 from tqdm import tqdm
 
@@ -17,7 +17,10 @@ from tqdm import tqdm
 
 (x_train, y_train), (x_test, y_test) = mnist
 
+# * NOT USED ANYMORE - Changed model to move away from linear algebra to more node-like thinking
+# Needs weights, not weights_transpose
 def matmul(m1, m2):
+    # * USAGE -> layer = matmul(input_layer, layer_weights)
     # Gather dimension data of both matrices
     m1_dim = (len(m1), len(m1[0]))
     m2_dim = (len(m2), len(m2[0]))
@@ -40,15 +43,29 @@ def matmul(m1, m2):
 
     return result
 
+# Functional model that takes in an image and guess the number (mnist)
 def model(image):
-    layer = image
+    input_layer = image
+    # Iterate through layers, moving linearized image to 10 node output
     for layer_weights, layer_biases in zip(weights, biases):
-        layer = matmul(layer, layer_weights)
+        output_layer = []
+        # Iterate through each of the nodes in the current layer
+        for node_weights, node_bias in zip(layer_weights, layer_biases):
+            assert len(input_layer) == len(node_weights), f"Weights do not correspond to nodes in the previous layer - {len(input_layer)} : {len(node_weights)}"
+            node_val = 0
+            # Iterate through previous layer, multiplying previous nodes by the weights and putting it into the new node
+            for data, weight in zip(input_layer, node_weights):
+                node_val += weight * data
+            # Add bias and add value to new layer
+            # node_val += node_bias
+            output_layer.append(node_val)
+        # Current layer becomes the input for the next one
+        input_layer = output_layer
 
     # Return actual guess instead of encoded logits vector
-    answer = layer[0][0] # Start off guessing it is zero
+    answer = output_layer[0] # Start off guessing it is zero
     index = 0
-    for i, challenger in enumerate(layer[0]):
+    for i, challenger in enumerate(output_layer):
         if challenger >= answer:
             answer = challenger
             index = i
@@ -56,15 +73,19 @@ def model(image):
     # return index
     return index
 
-def test_model(images, answers):
+def test_model(images, answers, bar=True):
     correct = 0
     incorrect = 0
-    pbar = tqdm(total=len(answers))
+    # Add progress bar unless specified otherwise
+    if bar:
+        pbar = tqdm(total=len(answers))
+    # Iterate through every image given
     for image, answer in zip(images, answers):
         # Flatten image for model
-        img = image.reshape([1, -1]).tolist()
+        img = image.reshape([1, -1]).tolist()[0]
         # Update progress bar
-        pbar.update(n=1)
+        if bar:
+            pbar.update(n=1)
         # Use model to make a prediction
         guess = model(img)
         # print(guess)
@@ -73,10 +94,11 @@ def test_model(images, answers):
             correct += 1
         else:
             incorrect += 1
-    pbar.close()
+    if bar:
+        pbar.close()
     return (correct, incorrect, len(images))
 
-length = 10
+length = 10000
 print(f"Testing model with {length} image{'s' if length != 1 else ''}")
-correct, incorrect, total = test_model(x_test[:length], y_test[:length])
-print(correct/total * 100, "%")
+correct, incorrect, total = test_model(x_test[:length], y_test[:length], bar=True)
+print("Accuracy: ", correct/total * 100, "%")
