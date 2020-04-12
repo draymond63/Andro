@@ -66,7 +66,6 @@ def model(image):
             answer = challenger
             index = i
 
-    # return index
     return index
 
 def test_model(images, answers, bar=True):
@@ -94,7 +93,7 @@ def test_model(images, answers, bar=True):
         pbar.close()
     return (correct, incorrect, len(images))
 
-length = 10
+length = 10 # max of 10000
 print(f"Testing model with {length} image{'s' if length != 1 else ''}")
 correct, incorrect, total = test_model(x_test[:length], y_test[:length], bar=True)
 print("Accuracy: ", correct/total * 100, "%")

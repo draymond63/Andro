@@ -23,7 +23,7 @@ def scale(num):
 def save_image(m, file):
     img = m.reshape([1, -1]).tolist()[0]
     
-    file.write("[")
+    file.write("(")
     for i1 in range(0, len(img), 8):
         # Pack bits into byte
         if i1 != 0:
@@ -36,27 +36,27 @@ def save_image(m, file):
             weight = img[i1 + i2]
             weight = weight / 127.5 - 1 # Scale to be between -1 and 1
             file.write(f"{scale(weight)}")
-    file.write("],\n")
+    file.write("),\n")
 
 # Save mnist data easily
 def save_mnist(name, data, file, scale):
     # Create a list of the object
-    file.write(f"{name} = [")
+    file.write(f"{name} = (")
     # Iterate through each variable
     for index in data:
         if scale:
             save_image(index, file)
         else:
             file.write(f"{index},")
-    file.write("]\n\n")
+    file.write(")\n\n")
 
 # Save all useful constants in a single file
-def scale_data(name, inc_mnist=True, inc_weights=True, inc_biases=True, mnist_len=10000):
+def scale_data(name, inc_mnist=True, inc_weights=True, inc_biases=True, inc_shape=True, mnist_len=10000):
     with open(f'{src_path}\\{name}.py', 'w') as file:
         # * Mnist data
         if inc_mnist:
             print("Saving mnist data")
-            (x_train, y_train), (x_test, y_test) = mnist
+            x_test, y_test = mnist[1]
             # save_mnist("x_train", x_train[], file, scale=True)
             # save_mnist("y_train", y_train, file, scale=False)
             save_mnist("x_test", x_test[:mnist_len], file, scale=True)
@@ -65,11 +65,11 @@ def scale_data(name, inc_mnist=True, inc_weights=True, inc_biases=True, mnist_le
         # * Weights & Biases
         if inc_weights:
             print("Saving weights")
-            file.write("weights = [\n")
+            file.write("weights = (\n")
             for layer in weights:
-                file.write("### LAYER\n[\n")
+                file.write("### LAYER\n(\n")
                 for x, node in enumerate(layer):
-                    file.write("[")
+                    file.write("(")
                     for i1 in range(0, len(node), 8):
                         # Pack bits into byte
                         if i1 != 0:
@@ -82,20 +82,31 @@ def scale_data(name, inc_mnist=True, inc_weights=True, inc_biases=True, mnist_le
                             weight = node[i1 + i2]
                             file.write(f"{scale(weight)}")
 
-                    file.write(f"], # Node {x}\n") # Pack all weights for a node into an list
-                file.write("],\n") # Pack all node packages into a matrix (list of lists)
-            file.write("]\n") # Pack all matrices into a list of layers
+                    file.write(f"), # Node {x}\n") # Pack all weights for a node into an list
+                file.write("),\n") # Pack all node packages into a matrix (list of lists)
+            file.write(")\n") # Pack all matrices into a list of layers
 
         # * Weights & Biases
         if inc_biases:
             print("Saving Biases")
-            file.write("biases = [\n")
+            file.write("biases = (\n")
             for layer_biases in biases:
-                file.write("[")
+                file.write("(")
                 for bias in layer_biases:
                     file.write(f"{bias}, ")
-                file.write("],\n") # Pack all biases into a layer
-            file.write("]\n") # Pack all matrices into a list of layers
+                file.write("),\n") # Pack all biases into a layer
+            file.write(")\n") # Pack all matrices into a list of layers
+        
+        if inc_shape:
+            print("Saving Shape")
+            file.write("shape = (784, ") # Input size is 784 pixels
+            for layer in weights:
+                file.write(f"{len(layer)}")
+                if layer != weights[-1]: # If it's the last layer, don't print the comma
+                    file.write(", ")
+
+            file.write(")\n")
+
 
 print("Packing mnist, weights, and biases")
 scale_data(file_name, mnist_len=50)
