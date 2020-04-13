@@ -1,6 +1,6 @@
 # AUTHOR: Daniel Raymond
 # DATE  : 2020-04-07
-# ABOUT : Hand-done multiplication to remove numpy from the project (About 1124x slower than D0)
+# ABOUT : Hand-done multiplication to remove numpy from the project (About 1124x slower than D0, 3 img/s with quantization, 20 img/s w/o)
 
 # Supress Tensorflow dll warning
 import os
@@ -39,11 +39,26 @@ def matmul(m1, m2):
 
     return result
 
-# Functional model that takes in an image and guess the number (mnist)
-def model(image):
-    input_layer = image
+def quantize(a, split=0):
+    if type(a) is list:
+        new = [] # New list same length as a
+        for x in a:
+            if x >= split:  new.append(1)
+            else:           new.append(-1)
+        return new
+    else:
+        if a >= split:  return 1
+        else:           return -1
+
+# Functional model that takes in an image and guesses the number (mnist)
+def model(image, quanitizing=False, inc_biases=False):
+    # Quantize incoming image if required
+    if quanitizing: input_layer = quantize(image, split=127)
+    else:           input_layer = image
+    
     # Iterate through layers, moving linearized image to 10 node output
     for layer_weights, layer_biases in zip(weights, biases):
+        print(input_layer)
         output_layer = []
         # Iterate through each of the nodes in the current layer
         for node_weights, node_bias in zip(layer_weights, layer_biases):
@@ -51,14 +66,22 @@ def model(image):
             node_val = 0
             # Iterate through previous layer, multiplying previous nodes by the weights and putting it into the new node
             for data, weight in zip(input_layer, node_weights):
-                node_val += weight * data
-            # Add bias and add value to new layer
-            node_val += node_bias
+                # Take the MSB of the val if required
+                if quanitizing: node_val += quantize(weight) * quantize(data)
+                else:           node_val += weight * data
+            # Add bias
+            if inc_biases:
+                node_val += node_bias
+            # Add value to new layer
             output_layer.append(node_val)
         # Current layer becomes the input for the next one
         input_layer = output_layer
+        # Quantize all input layers if required
+        if quanitizing:
+            input_layer = quantize(input_layer)
 
     # Return actual guess instead of encoded logits vector
+    print(output_layer)
     answer = output_layer[0] # Start off guessing it is zero
     index = 0
     for i, challenger in enumerate(output_layer):
@@ -68,7 +91,7 @@ def model(image):
 
     return index
 
-def test_model(images, answers, bar=True):
+def test_model(images, answers, quanitizing=False, inc_biases=False, bar=True):
     correct = 0
     incorrect = 0
     # Add progress bar unless specified otherwise
@@ -82,7 +105,7 @@ def test_model(images, answers, bar=True):
         if bar:
             pbar.update(n=1)
         # Use model to make a prediction
-        guess = model(img)
+        guess = model(img, quanitizing, inc_biases)
         # print(guess)
         # Evaluate
         if guess == answer:
@@ -93,7 +116,13 @@ def test_model(images, answers, bar=True):
         pbar.close()
     return (correct, incorrect, len(images))
 
-length = 10 # max of 10000
+length = 1 # max of 10000
 print(f"Testing model with {length} image{'s' if length != 1 else ''}")
-correct, incorrect, total = test_model(x_test[:length], y_test[:length], bar=True)
+correct, incorrect, total = test_model(
+    x_test[:length], 
+    y_test[:length], 
+    quanitizing=True, 
+    inc_biases=False,
+    bar=False
+)
 print("Accuracy: ", correct/total * 100, "%")
