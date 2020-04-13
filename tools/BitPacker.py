@@ -98,17 +98,16 @@ def scale_data(name, inc_mnist=True, inc_weights=True, inc_biases=True, inc_shap
             file.write(")\n") # Pack all matrices into a list of layers
         
         if inc_shape:
-            print("Saving Shape")
+            print("Saving shape")
             file.write("shape = (784, ") # Input size is 784 pixels
             for layer in weights:
                 file.write(f"{len(layer)}")
                 if layer != weights[-1]: # If it's the last layer, don't print the comma
                     file.write(", ")
-
             file.write(")\n")
 
 
 if __name__ == "__main__":
     print("Packing mnist, weights, and biases")
-    scale_data(file_name, mnist_len=50)
+    scale_data(file_name, inc_biases=False, mnist_len=50)
     print("Packing succcessful")
