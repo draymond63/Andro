@@ -13,32 +13,6 @@ from tqdm import tqdm
 
 (x_train, y_train), (x_test, y_test) = mnist
 
-# * NOT USED ANYMORE - Changed model to move away from linear algebra to more node-like thinking
-# Needs weights, not weights_transpose
-def matmul(m1, m2):
-    # * USAGE -> layer = matmul(input_layer, layer_weights)
-    # Gather dimension data of both matrices
-    m1_dim = (len(m1), len(m1[0]))
-    m2_dim = (len(m2), len(m2[0]))
-    result_dim = (m1_dim[0], m2_dim[1])
-    # print(result_dim)
-    assert m1_dim[1] == m2_dim[0], 'Inner dimensions must remain consistent when multiplying matrices'
-    inner_dim = m1_dim[1]
-
-    result = [ # Create matrix with the correct dimensions
-        [0]*result_dim[1] 
-        for _ in range(result_dim[0]) 
-    ]
-
-    # Iterate through each element in the resultant matrix
-    for row in range(result_dim[0]):
-        for col in range(result_dim[1]):
-            # Iterate through each row and column, multiplying and adding (Per node)
-            for i in range(inner_dim):
-                result[row][col] += m1[row][i] * m2[i][col] # Each node
-
-    return result
-
 def quantize(a, split=0):
     if type(a) is list:
         new = [] # New list same length as a
@@ -53,12 +27,11 @@ def quantize(a, split=0):
 # Functional model that takes in an image and guesses the number (mnist)
 def model(image, quanitizing=False, inc_biases=False):
     # Quantize incoming image if required
-    if quanitizing: input_layer = quantize(image, split=127)
+    if quanitizing: input_layer = quantize(image, split=127.5)
     else:           input_layer = image
     
     # Iterate through layers, moving linearized image to 10 node output
     for layer_weights, layer_biases in zip(weights, biases):
-        print(input_layer)
         output_layer = []
         # Iterate through each of the nodes in the current layer
         for node_weights, node_bias in zip(layer_weights, layer_biases):
@@ -81,7 +54,6 @@ def model(image, quanitizing=False, inc_biases=False):
             input_layer = quantize(input_layer)
 
     # Return actual guess instead of encoded logits vector
-    print(output_layer)
     answer = output_layer[0] # Start off guessing it is zero
     index = 0
     for i, challenger in enumerate(output_layer):
@@ -106,7 +78,6 @@ def test_model(images, answers, quanitizing=False, inc_biases=False, bar=True):
             pbar.update(n=1)
         # Use model to make a prediction
         guess = model(img, quanitizing, inc_biases)
-        # print(guess)
         # Evaluate
         if guess == answer:
             correct += 1
@@ -123,6 +94,6 @@ correct, incorrect, total = test_model(
     y_test[:length], 
     quanitizing=True, 
     inc_biases=False,
-    bar=False
+    bar=True
 )
 print("Accuracy: ", correct/total * 100, "%")

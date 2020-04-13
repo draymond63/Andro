@@ -15,21 +15,32 @@ def XNOR(a, b):
 	if a == b:  return 1
 	else:       return 0
 
+def NOT(a):
+	if a: 	return 0
+	else: 	return 1
+
 def UpDown(value, direction):
 	if direction == 1:
 		return value + 1
 	elif direction == 0:
 		return value - 1
 
-def quantize(a):
-	if a >= 0:  return 1
-	else:       return 0
+def getMSB(a): # MSB is 1 for a negative number
+	if a >= 0:  return 0
+	else:       return 1
+
+# * Packing is backwards, hardware needs to reverse wire order (from SR to EEPROM)
+def reverseByte(byte):
+	width = 8 # Number of bits in the byte
+	# Flip byte
+	byte = '{:0{width}b}'.format(byte, width=width)
+	byte = int(byte[::-1], 2)
+	return byte
 
 # Functional model that takes in an image and guesses the number (mnist)
 def model(image):
 	input_layer = image
 	num_layers = len(shape) - 1
-
 	for l_index in range(num_layers): # One less: not including the input layer
 		prev_size = shape[l_index]
 		# Keep track of current layer
@@ -55,13 +66,18 @@ def model(image):
 			# Save node in some form
 			if not last_layer:
 				# Quantize (Grab MSB)
-				MSB = quantize(accum)
+				MSB = getMSB(accum)
+				val = NOT(MSB)
 				# Store value by bit packing again
-				curr_packed_nodes <<= 1
-				curr_packed_nodes |= MSB
+				curr_packed_nodes |= val
 				# If 8 nodes have gone by, packed weights together
-				if node % 8 == 0:
-					curr_layer.append(curr_packed_nodes)
+				if (node + 1) % 8 == 0: # Don't start with appending
+					curr_layer.append(reverseByte(curr_packed_nodes))
+					curr_packed_nodes = 0
+				else:
+					# Shift bits to make room for the next node
+					curr_packed_nodes <<= 1
+
 			# Last layer is not quantized
 			else: 
 				curr_layer.append(accum)
@@ -76,7 +92,7 @@ def model(image):
 		assert EEPROM_size == len(curr_layer), f"Not Enough nodes have been added to current layer - {curr_size} != {len(curr_layer)}"
 
 	# Return actual guess instead of encoded logits vector
-	print(curr_layer)
+	# print(curr_layer)
 	answer = curr_layer[0] # Start off guessing it is zero
 	index = 0
 	for i, challenger in enumerate(curr_layer):
@@ -110,7 +126,7 @@ def test_model(images, answers, bar=True):
 		pbar.close()
 	return (correct, incorrect, len(images))
 
-length = 1 # max of 50
+length = 50 # max of 50
 print(f"Testing model with {length} image{'s' if length != 1 else ''}")
-correct, incorrect, total = test_model(x_test[:length], y_test[:length], bar=False)
+correct, incorrect, total = test_model(x_test[:length], y_test[:length], bar=True)
 print("Accuracy: ", correct/total * 100, "%")

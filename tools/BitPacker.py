@@ -108,6 +108,7 @@ def scale_data(name, inc_mnist=True, inc_weights=True, inc_biases=True, inc_shap
             file.write(")\n")
 
 
-print("Packing mnist, weights, and biases")
-scale_data(file_name, mnist_len=50)
-print("Packing succcessful")
+if __name__ == "__main__":
+    print("Packing mnist, weights, and biases")
+    scale_data(file_name, mnist_len=50)
+    print("Packing succcessful")
