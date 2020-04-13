@@ -1,12 +1,8 @@
 # AUTHOR: Daniel Raymond
 # DATE  : 2020-04-012
-# ABOUT : Neural network using packed bits technique and bitwise operators
+# ABOUT : Neural network using packed bits technique and bitwise operators (88% Accurate, fully quantized, 2.7 img/s)
 
-# Supress Tensorflow dll warning
-import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 from src.data_packed import x_test, y_test, weights, shape
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 from tqdm import tqdm
 
 # * STRUCTURE OF WEIGHTS - LAYER : NODE : WEIGHT TO PREVIOUS LAYER
