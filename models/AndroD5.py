@@ -19,8 +19,8 @@ class model():
         # * Current model max dimensions - # of: layers=2, nodes=512, weights-bytes-in-node=98
         # MINIMUM address bits for current model - 1, 9, 7
         self.WEIGHTS_EEPROM.fill3D(weights, (1, 9, 7))
-        self.INPUT1_EEPROM = IC.EEPROM(addr_len=10, name='INPUT1')
-        # ? self.INPUT2_EEPROM = IC.EEPROM(addr_len=10, name='INPUT2') # ? Storage EEPROM
+        self.INPUT1_EEPROM = IC.EEPROM(addr_len=7, name='INPUT1')
+        # ? self.INPUT2_EEPROM = IC.EEPROM(addr_len=7, name='INPUT2') # ? Storage EEPROM
         # MINIMUM address bits for current model - 2 (784, 512, 10)
         self.SHAPE_EEPROM = IC.EEPROM(addr_len=2, name="SHAPE")
         self.SHAPE_EEPROM.fill3D(shape, (0, 0, 2))
@@ -30,32 +30,37 @@ class model():
         self.W_MUX = asyncIC.Multiplexor(out_len=1, name='Weights Mux')
         self.I_MUX = asyncIC.Multiplexor(out_len=1, name='Inputs Mux')
         # MULTIPLIER
-        self.XNOR = asyncIC.Multiplier(name='XNOR')
+        self.XNOR = asyncIC.XNOR(name='XNOR')
         self.XNOR.wire(W_MUX.output, I_MUX.output)
         # ADDER
         self.accum = IC.UpDownCounter(name='Accum')
         self.accum.wire(self.XNOR.output)
 
     def _initCounters(self):
+        # Sizes match those of EEPROMS
         self.LayerCounter = IC.Counter(2, name="L_COUNT")
+        self.NodeCounter = IC.Counter(9, name="N_COUNT")
+        self.WeightCounter = IC.Counter(7, name="W_COUNT")
+
+        self.Layer_Done = asyncIC.XNOR(self.NodeCounter.width, name="")
     
     # Given an image, returns the value
     def predict(self, x):
-        self.INPUT1_EEPROM.fill3D([[x]], (0, 0, 10))
+        self.INPUT1_EEPROM.fill3D([[x]], (0, 0, 7))
         
 
     def grabAndMult(self):
         pass
 
-# # Test to see that xnor + adder work
+### Test to see that xnor + adder work
 weights = [[[0b00000000, 0b11111111, 0b01010101, 0b01100110]]]
 inputs =  [[[0b01010101, 0b00000000, 0b01010101, 0b11110000]]]
 # Create and fill EEPROMs
 WEIGHTS = IC.EEPROM(addr_len=3, name='Weights')
-WEIGHTS.fill3D(weights, (0, 0, 3))
+WEIGHTS.fill3D(weights, (0, 0, 2))
 
 INPUTS = IC.EEPROM(addr_len=3, name='Input')
-INPUTS.fill3D(inputs, (0, 0, 3))
+INPUTS.fill3D(inputs, (0, 0, 2))
 
 # Create select lines for MUXs
 PC = IC.Counter(6, name="PC")
@@ -78,16 +83,16 @@ I_MUX = asyncIC.Multiplexor(out_len=1, name='Inputs Mux')
 W_MUX.wire(WEIGHTS.output, sel)
 I_MUX.wire(INPUTS.output, sel)
 # MULTIPLIER
-XNOR = asyncIC.Multiplier(name='XNOR')
+XNOR = asyncIC.XNOR(1, name='Multiplier')
 XNOR.wire(W_MUX.output, I_MUX.output)
 # ADDER
 accum = IC.UpDownCounter(name='Accum')
 accum.wire(XNOR.output)
 
-# Increment PC
-clk = asyncIC.pins(1, name="CLK")
-PC.wire(clk)
-for i in range(4 * 8):
-    accum.update()
+# Create a clock to tether
+clk = asyncIC.CLOCK([accum, PC]) # PC, accum is wrong
+
+for i in range(len(weights[0][0]) * 8):
+    clk.pulse()
     print(f'{W_MUX}\t\t{I_MUX}\t\t{accum}')
-    clk.raw ^= 1 # Toggle clock
+print(accum)

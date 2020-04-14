@@ -41,7 +41,7 @@ class EEPROM(CHIP):
         if data_in != None:
             assert isinstance(data_in, pins), f"[EEPROM]\t{self.name} must be driven by pins"
             assert isinstance(rd_wr, pins), f"[EEPROM]\t{self.name} must be driven by pins"
-            assert data_in.width == self.output.width, f"[EEPROM]\t{self.name} needs {self.output.width} input pins, but got {data_in.width}"
+            assert data_in.width == self.width, f"[EEPROM]\t{self.name} needs {self.width} input pins, but got {data_in.width}"
             assert rd_wr.width == 1, f"[EEPROM]\t{self.name} needs 1 pin for rd/wr, but got {rd_wr.width}"
             rd_wr.register_callback(self._updateWr) # Listen to read/write
             self.data_in = data_in
@@ -50,7 +50,7 @@ class EEPROM(CHIP):
     # * Assumes data is three dimensional - LAYER : NODE : WEIGHT
     def fill3D(self, data, addr_bits_per_dim):  
         assert len(addr_bits_per_dim) == 3,  f"[EEPROM]\t{self.name} fill3D requires data is 3 dimensional"
-        assert sum(addr_bits_per_dim) == self.addr_width,  f"[EEPROM]\t{self.name} addr width {self.addr_width} does not match those given to fill()"
+        assert sum(addr_bits_per_dim) <= self.addr_width,  f"[EEPROM]\t{self.name} addr width {self.addr_width} does not match those given to fill3D()"
         # Get enough memory to pad out with zeroes
         self.data = [0] * (1 << self.addr_width) # ? EEPROMS generally store 0xFF as default, not 0
         
@@ -105,12 +105,13 @@ class UpDownCounter(CHIP):
 
 # Increments with update/clk
 class Counter(CHIP):
+    # ? Useless with clock module
     def wire(self, clk):
         assert isinstance(clk, pins), "[COUNT]\tCounter must be driven by pins"
         assert clk.width == 1, f"[COUNT]\tCounter only needs one bit of input, not {clk.width}"
         # * Listen when the clock pulses on
         self.clk = clk
-        clk.register_callback(lambda: self.update()) # if self.clk.raw else None
+        clk.register_callback(lambda: self.update() if self.clk.raw else None)
     # Increment counter
     def update(self):
         self.raw = self.raw + 1
@@ -120,7 +121,7 @@ class ShiftRegister(CHIP):
     # Wire inputs
     def wire(self, data):
         assert isinstance(data, pins), "[SREG]\tShift Register must be driven by pins"
-        assert data.width == 1, f"[UPDWN]\tShift Register requires 1 bit of serial data, not {data.width}"
+        assert data.width == 1, f"[SREG]\tShift Register requires 1 bit of serial data, not {data.width}"
         self.data = data
 
     def update(self):
@@ -128,8 +129,16 @@ class ShiftRegister(CHIP):
         self.raw = self.raw + 1
         self.raw = self.raw | self.data.raw
         # Ignore overflow
-        self.raw = self.raw % (1 << self.output.width)
+        self.raw = self.raw % (1 << self.width)
 
 class FlipFlop(CHIP):
-    def wire(self, data_in):
-        pass
+    def wire(self, data_in, clk=None):
+        assert isinstance(data_in, pins), "[FLFP]\tShift Register must be driven by pins"
+        assert data_in.width == self.width, f"[FLFP]\tShift Register requires {self.width} input(s), not {data_in.width}"
+        self.data_in = data_in
+
+        if clk:
+            clk.register_callback(self.update)
+
+    def update(self):
+        self.value = self.data_in.value

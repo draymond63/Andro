@@ -2,17 +2,30 @@
 # DATE  : 2020-04-013
 # ABOUT : Async pieces that all generations can use
 
-# *********************************** PIN DEFINITIONS
+# *********************************** PIN DEFINITION
 class pins():
-    def __init__(self, length, val=0, name=""):
+    def __init__(self, length=1, val=0, pins_list=None, name=""):
+        # Permanent attributes
         self.name = name
         self._callbacks = []
-        self.max_val = 2 ** length - 1
-        self._value = [0] * length
-        self._width = length
-
-        self.value = val
         self._raw = 0
+        # Default Constructor
+        if pins_list == None:
+            self.max_val = 2 ** length - 1
+            self._value = [0] * length
+            self._width = length
+            self.value = val
+        # Packing Constructor
+        else:
+            # * List of pins if from least significant group to most
+            self.pins_list = pins_list
+            self._width = sum(pin.width for pin in pins_list)
+            self._value = [0] * self.width
+            self.max_val = 2 ** self.width - 1
+
+            for pins_sel in pins_list:
+                pins_sel.register_callback(self._updateGroup)
+            self._updateGroup()
 
     # Getters and Setters
     @property
@@ -80,6 +93,14 @@ class pins():
         # Update every async object connected
         self._notify_observers()
 
+    def _updateGroup(self):
+        temp = []
+        # Iterate through input pins
+        for pin_group in self.pins_list:
+            temp.extend( pin_group.value )
+        self.value = temp
+                
+
     # Let all async objects update
     def _notify_observers(self):
         for callback in self._callbacks:
@@ -90,7 +111,7 @@ class pins():
     def register_callback(self, callback):
         self._callbacks.append(callback)
 
-# * BASE CLASS
+# *********************************** CHIP BASE DEFINITION
 class CHIP():
     def __init__(self, out_len=8, name=""):
         self.name = name
@@ -104,6 +125,9 @@ class CHIP():
     @property
     def raw(self):
         return self.output.raw
+    @property
+    def width(self):
+        return self.output.width
     @raw.setter
     def raw(self, val):
         self.output.value = val
@@ -117,30 +141,41 @@ class CHIP():
         return str(self.output)
 
 # ********************************** GATE DEFINITIONS
-# XNOR gate
-class Multiplier(CHIP):
-    def __init__(self, name=""):
-        self.output = pins(1, name=f"{name} - Output")
-
-    @property
-    def value(self):
-        return self.output.value
-
+class GATE(CHIP):
+    # Init is built off CHIP
+    def __init__(self, gate_name, expression, out_len, name=""):
+        super(GATE, self).__init__(out_len=out_len)
+        self.gate_name = gate_name
+        self.expression = expression
     # Connect incoming signals to the chip
     def wire(self, a, b):
-        assert isinstance(a, pins) and isinstance(b, pins), "[XNOR]\tMultiplier must be driven by two output pins"
-        assert a.width == 1 and b.width == 1, "[XNOR]\tMultiplier can only handle 1 bit operations"
+        assert isinstance(a, pins) and isinstance(b, pins), f"[{self.gate_name}]\t{self.name} must be driven by two output pins"
+        assert a.width == self.width and b.width == self.width, f"[{self.gate_name}]\t{self.name} inputs must be the same size as the ouput: {self.width}"
         # Listen to both inputs
-        a.register_callback(self.mult)
-        b.register_callback(self.mult)
+        a.register_callback(self.calc)
+        b.register_callback(self.calc)
         self.a = a
         self.b = b
-        self.mult() # Run the initial multiplication
+        self.calc() # Run the initial multiplication
+    # Run the expression to compute output
+    def calc(self):
+        temp = []
+        for i in range(self.width):
+            if self.expression(i):  temp.append(1)
+            else:                   temp.append(0)
+        self.value = temp
 
-    def mult(self):
-        val = 1 if self.a.value == self.b.value else 0
-        self.raw = val
-        self.output.value = val
+class XNOR(GATE):
+    def __init__(self, out_len=1, name=""):
+        super(XNOR, self).__init__("XNOR", self.expr, out_len, name)
+    def expr(self, i):
+        return self.a.value[i] == self.b.value[i]
+
+class AND(GATE):
+    def __init__(self, out_len=1, name=""):
+        super(AND, self).__init__("AND", self.expr, out_len, name)
+    def expr(self, i):
+        return self.a.value[i] and self.b.value[i]
 
 # ********************************** ASYNC IC DEFINITIONS
 # Selector (Generally used in conjunction with EEPROM)
@@ -177,6 +212,26 @@ class Multiplexor(CHIP):
         # Parse input and put it into output directly (as a list)
         self.output.value = self.a.value[sel_rng[0]:sel_rng[1]]
 
+# ********************************** CLOCK DEFINITION
+class CLOCK():
+    def __init__(self, tethers=[]):
+        self.state = 0
+        self._callbacks=[]
+        for i in tethers:
+            try:    self.sync(i.update)
+            except: raise EnvironmentError(f"{i} does not have a function named update")
+
+    def sync(self, callback):
+        self._callbacks.append(lambda: callback() if self.state else None)
+
+    def toggle(self):
+        self.state ^= 1
+        for callback in self._callbacks:
+            callback()
+
+    def pulse(self, times=1):
+        for _ in range(2 * times):
+            self.toggle()
 
 # o1 = pins(1)
 # o2 = pins(2)
