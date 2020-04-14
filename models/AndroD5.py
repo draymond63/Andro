@@ -89,7 +89,5 @@ clk = asyncIC.pins(1, name="CLK")
 PC.wire(clk)
 for i in range(4 * 8):
     accum.update()
-    print(PC, '\t', W_MUX, '\t', I_MUX, '\t', accum)
+    print(f'{W_MUX}\t\t{I_MUX}\t\t{accum}')
     clk.raw ^= 1 # Toggle clock
-    # print(addr, sel)
-    # print(f'{W_MUX}\t\t{I_MUX}\t\t{accum}')
