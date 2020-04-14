@@ -27,13 +27,6 @@ def prepImg(img):
         col_index %= 28
     return parsed_img
 
-# image = x_test[0]
-# label = y_test[0]
-# fig = plt.figure
-# plt.imshow(prepImg(image), label=label, cmap='gray')
-# plt.show()
-
-
 num_row = 5
 num_col = 10
 length = num_row * num_col # Max 50
