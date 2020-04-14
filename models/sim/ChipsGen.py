@@ -5,6 +5,7 @@
 # *********************************** PIN DEFINITIONS
 class pins():
     def __init__(self, length, val=0, name=""):
+        self.name = name
         self._callbacks = []
         self.max_val = 2 ** length - 1
         self._value = [0] * length
@@ -12,7 +13,6 @@ class pins():
 
         self.value = val
         self.raw = 0
-        self.name = name
 
     # Getters and Setters
     @property
@@ -21,6 +21,25 @@ class pins():
     @property
     def value(self):
         return self._value
+
+    def __getitem__(self, k):
+        # Avoid divide by zero error
+        step = k.step if k.step else 1
+        assert (k.stop-k.start)//step > 0, f"[PIN]\t{self.name} Improper slice"
+        # Create new set of pins
+        temp_pins = pins( (k.stop-k.start)//step, name=f"{self.name}[{k.start}:{k.stop}:{step}]" )
+        temp_pins.start = k.start
+        temp_pins.end = k.stop
+        temp_pins.step = step
+        # Force new pins to update with current ones
+        self.register_callback(temp_pins._force_update)
+        temp_pins._force_update(self)
+        return temp_pins
+
+    # * Only used with __getitem__
+    def _force_update(self, input_pin):
+        if self.step <= 0:  self.value = input_pin.value[ self.start:self.end - 1:self.step ]
+        else:               self.value = input_pin.value[ self.start:self.end    :self.step ]
 
     # Functions
     @value.setter
@@ -36,19 +55,24 @@ class pins():
                 raw <<= 1
             self.raw = raw >> 1
         # If value given is a raw value
-        else:
+        elif isinstance(val, int):
             assert val <= self.max_val, f"[PIN]\t{self.name} expected value below {self.max_val}. Bit length: {self.width}"
             self.raw = val
             # Split bits into array
             for i in range(self.width):
                 self._value[i] = 1 if val & (1 << i) else 0
+        else:
+            raise TypeError(f"{val} is of type {type(val)}, not list or int")
         # Update every async object connected
         self._notify_observers()
 
     # Let all async objects update
     def _notify_observers(self):
         for callback in self._callbacks:
-            callback()
+            try: # Try and pass the value if it is needed
+                callback(self)
+            except:
+                callback()
     def register_callback(self, callback):
         self._callbacks.append(callback)
 
@@ -78,15 +102,39 @@ class Multiplier():
         self.raw = val
         self.output.value = val
 
-# *********************************** REG DEFINITIONS
-# class register():
-#     def __init__(self, bit_length, val=0, name=""):
-#         self.val
-#         self.output = pins(bit_length, val)
+# ********************************** ASYNC IC DEFINITIONS
+# Selector (Generally used in conjunction with EEPROM)
+class Multiplexor():
+    def __init__(self, out_len=1, name=""):
+        self.output = pins(out_len, name=f"{name} - Output")
+        self.out_len = out_len
+        self.name = name
 
-#     def update(self, val):
-#         self.val = val
-#         self.output.value = val
+    # Return value of output pin if requested
+    @property
+    def value(self):
+        return self.output.value
+    @property
+    def raw(self):
+        return self.output.raw
+
+    # Define input pins
+    def wire(self, a, sel):
+        assert a.width == self.out_len << sel.width, f"[MUX]\t{self.name} pin dimensions don't match: {a.width} != {self.out_len} << {sel.width}"
+        # Save dimensions
+        self.in_len = a.width
+        self.sel_len = sel.width
+        # Multiplexor is async so always update with inputes
+        a.register_callback(self.select)
+        sel.register_callback(self.select)
+        self.a = a
+        self.sel = sel
+    
+    def select(self):
+        # Get appropriate range
+        sel_rng = (self.sel.raw, self.sel.raw+self.out_len)
+        # Parse input and put it into output directly (as a list)
+        self.output.value = self.a.value[sel_rng[0]:sel_rng[1]]
 
 
 # o1 = pins(1)

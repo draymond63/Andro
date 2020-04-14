@@ -18,3 +18,42 @@ class model():
     def predict(self, x):
         self.INPUT1_EEPROM.fill3D([x], (0, 5, 5))
         pass
+
+# # Test to see that xnor + adder work
+weights = [[[0b00000000, 0b11111111, 0b01010101, 0b01100110]]]
+inputs =  [[[0b01010101, 0b00000000, 0b01010101, 0b11110000]]]
+# Create and fill EEPROMs
+WEIGHTS = IC.EEPROM(addr_len=3, name="Weights")
+WEIGHTS.fill3D(weights, (0, 0, 3))
+
+INPUTS = IC.EEPROM(addr_len=3, name="Input")
+INPUTS.fill3D(inputs, (0, 0, 3))
+
+# Create select lines for MUXs
+prgm_counter = asyncIC.pins(6, name="PC")
+sel = prgm_counter[0:3]
+addr = prgm_counter[3:6]
+
+# Create and wire MUXs
+W_MUX = asyncIC.Multiplexor(out_len=1, name="Weights Mux")
+I_MUX = asyncIC.Multiplexor(out_len=1, name="Inputs Mux") 
+W_MUX.wire(WEIGHTS.io_pins, sel)
+I_MUX.wire(INPUTS.io_pins, sel)
+
+# Wire addresses to EEPROMs
+WEIGHTS.wire(addr)
+INPUTS.wire(addr)
+
+# Create MULTIPLIER
+xnor = asyncIC.Multiplier(name="XNOR")
+xnor.wire(W_MUX.output, I_MUX.output)
+
+# Create ADDER
+accum = IC.UpDownCounter(name="accum")
+accum.wire(xnor.output)
+
+print('Weight\tInput\tAccum')
+for i in range(1 << 6):
+    prgm_counter.value = i
+    accum.update()
+    print(f"{W_MUX.raw}\t{I_MUX.raw}\t{accum.raw}")
