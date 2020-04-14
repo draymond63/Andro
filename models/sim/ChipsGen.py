@@ -12,7 +12,7 @@ class pins():
         self._width = length
 
         self.value = val
-        self.raw = 0
+        self._raw = 0
 
     # Getters and Setters
     @property
@@ -21,7 +21,18 @@ class pins():
     @property
     def value(self):
         return self._value
+    @property
+    def raw(self):
+        return self._raw
 
+    # * PRINT
+    def __str__(self):
+        string = ''
+        for bit in self.value:
+            string += str(bit)
+        string = string[::-1]
+        return f"{self.name}: {string}"
+    # * SLICE
     def __getitem__(self, k):
         # Avoid divide by zero error
         step = k.step if k.step else 1
@@ -41,7 +52,10 @@ class pins():
         if self.step <= 0:  self.value = input_pin.value[ self.start:self.end - 1:self.step ]
         else:               self.value = input_pin.value[ self.start:self.end    :self.step ]
 
-    # Functions
+    # Setters
+    @raw.setter
+    def raw(self, val):
+        self.value = val
     @value.setter
     def value(self, val):
         # If value given is a list of bits
@@ -53,11 +67,11 @@ class pins():
             for i in val[::-1]:
                 raw |= i
                 raw <<= 1
-            self.raw = raw >> 1
+            self._raw = raw >> 1
         # If value given is a raw value
         elif isinstance(val, int):
             assert val <= self.max_val, f"[PIN]\t{self.name} expected value below {self.max_val}. Bit length: {self.width}"
-            self.raw = val
+            self._raw = val
             # Split bits into array
             for i in range(self.width):
                 self._value[i] = 1 if val & (1 << i) else 0
@@ -76,9 +90,35 @@ class pins():
     def register_callback(self, callback):
         self._callbacks.append(callback)
 
+# * BASE CLASS
+class CHIP():
+    def __init__(self, out_len=8, name=""):
+        self.name = name
+        self._raw = 0
+        self._value = 0
+        self.output = pins(out_len, name=f"{name} - Output")
+
+    @property
+    def value(self):
+        return self.output.value
+    @property
+    def raw(self):
+        return self.output.raw
+    @raw.setter
+    def raw(self, val):
+        self.output.value = val
+        self._raw = val
+    @value.setter
+    def value(self, val):
+        self.output.value = val
+        self._raw = self.output.raw
+
+    def __str__(self):
+        return str(self.output)
+
 # ********************************** GATE DEFINITIONS
 # XNOR gate
-class Multiplier():
+class Multiplier(CHIP):
     def __init__(self, name=""):
         self.output = pins(1, name=f"{name} - Output")
 
@@ -104,7 +144,7 @@ class Multiplier():
 
 # ********************************** ASYNC IC DEFINITIONS
 # Selector (Generally used in conjunction with EEPROM)
-class Multiplexor():
+class Multiplexor(CHIP):
     def __init__(self, out_len=1, name=""):
         self.output = pins(out_len, name=f"{name} - Output")
         self.out_len = out_len
@@ -129,6 +169,7 @@ class Multiplexor():
         sel.register_callback(self.select)
         self.a = a
         self.sel = sel
+        self.select() # Initialize state
     
     def select(self):
         # Get appropriate range
