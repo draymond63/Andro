@@ -153,6 +153,8 @@ class CHIP():
 
     def __str__(self):
         return f"{self.name}: {str(self.output)}"
+    def __bool__(self):
+        return bool(self.raw)
 
 # ********************************** GATE DEFINITIONS
 class GATE(CHIP):
@@ -248,6 +250,9 @@ class CLOCK():
     def pulse(self, times=1):
         for _ in range(2 * times):
             self.toggle()
+
+    def __bool__(self):
+        return bool(self.state)
 
 # o1 = pins(1)
 # o2 = pins(2)

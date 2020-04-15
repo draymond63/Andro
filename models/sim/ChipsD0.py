@@ -15,6 +15,7 @@ class EEPROM(CHIP):
     def __init__(self, addr_len=12, io_len=8, name=""):
         super(EEPROM, self).__init__(io_len, name=name)
         self.size = (1 << addr_len) - 1 # Measured in bits
+        self.data = [0]
         self.addr_width = addr_len
         self.isWriting = 0 # Initially ground rd_wr -> set to read
 
@@ -47,7 +48,7 @@ class EEPROM(CHIP):
             self.rd_wr = data_in
 
     # * Assumes data is three dimensional - LAYER : NODE : WEIGHT
-    def fill3D(self, data, addr_bits_per_dim):  
+    def fill3D(self, data, addr_bits_per_dim):
         assert len(addr_bits_per_dim) == 3,  f"[EEPROM]\t{self.name} fill3D requires data is 3 dimensional"
         assert sum(addr_bits_per_dim) <= self.addr_width,  f"[EEPROM]\t{self.name} addr width {self.addr_width} does not match those given to fill3D()"
         # Get enough memory to pad out with zeroes
@@ -119,8 +120,8 @@ class Counter(CHIP):
 class ShiftRegister(CHIP):
     # Wire inputs
     def wire(self, data):
-        assert isinstance(data, pins), "[SREG]\tShift Register must be driven by pins"
-        assert data.width == 1, f"[SREG]\tShift Register requires 1 bit of serial data, not {data.width}"
+        assert isinstance(data, pins), f"[SREG]\t{self.name} must be driven by pins"
+        assert data.width == 1, f"[SREG]\t{self.name} requires 1 bit of serial data, not {data.width}"
         self.data = data
 
     def update(self):
@@ -132,8 +133,8 @@ class ShiftRegister(CHIP):
 
 class FlipFlop(CHIP):
     def wire(self, data_in, clk=None):
-        assert isinstance(data_in, pins), "[FLFP]\tShift Register must be driven by pins"
-        assert data_in.width == self.width, f"[FLFP]\tShift Register requires {self.width} input(s), not {data_in.width}"
+        assert isinstance(data_in, pins), f"[FLFP]\t{self.name} must be driven by pins"
+        assert data_in.width == self.width, f"[FLFP]\t{self.name} requires {self.width} input(s), not {data_in.width}"
         self.data_in = data_in
         # If a clock is given, make it update automatically
         if clk:

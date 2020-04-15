@@ -12,26 +12,32 @@ BITS_LAYER = 1
 BITS_NODES = 9
 BITS_WEIGHTS = 7
 
-class model():
+class Model():
     def __init__(self):
         self._initEEPROM()
         self._initMult()
         self._initCounters()
+        self._wireEEPROM()
+
+        self.clk = asyncIC.CLOCK([
+            self.accum,
+            self.weight_counter,
+        ])
 
     def _initEEPROM(self):
         # Weights currently require 98 kB : addr_len >= 17 if packed to the max
-        self.WEIGHTS_EEPROM = IC.EEPROM(addr_len=18, name='WEIGHTS')
+        self.WEIGHTS_EEPROM = IC.EEPROM(addr_len=17, name='WEIGHTS')
         # * Current model max dimensions - # of: layers=2, nodes=512, weights-bytes-in-node=98
         # MINIMUM address bits for current model - 1, 9, 7
         self.WEIGHTS_EEPROM.fill3D(weights, (BITS_LAYER, BITS_NODES, BITS_WEIGHTS))
-        self.INPUT1_EEPROM = IC.EEPROM(addr_len=7, name='INPUT1')
+        self.INPUT1_EEPROM = IC.EEPROM(addr_len=16, name='INPUT1')
         # ? self.INPUT2_EEPROM = IC.EEPROM(addr_len=7, name='INPUT2') # ? Storage EEPROM
         # MINIMUM address bits for current model - 2 (784, 512, 10)
         # ? self.SHAPE_EEPROM = IC.EEPROM(addr_len=2, name="SHAPE")
         # ? self.SHAPE_EEPROM.fill3D(shape, (0, 0, 2))
-        self.INPUT_SIZE =        IC.FlipFlop(10, val=784, name="CONST_IN_SIZE")
-        self.HIDDEN_LAYER_SIZE = IC.FlipFlop(10, val=512, name="CONST_HL_SIZE")
-        self.OUTPUT_SIZE =       IC.FlipFlop(10, val=10, name="CONST_OUT_SIZE")
+        self.INPUT_SIZE = IC.FlipFlop(10, val=784, name="SHAPE_WEIGHT_COUNT")
+        self.LAYER_SIZE = IC.FlipFlop(10, val=512, name="SHAPE_NODE_COUNT")
+        self.LAYER_SIZE.wire(self.INPUT_SIZE.output) # ? Add a clock
 
     def _initMult(self):
         # MUXs
@@ -41,26 +47,56 @@ class model():
         self.XNOR = asyncIC.XNOR(name='XNOR')
         self.XNOR.wire(self.W_MUX.output, self.I_MUX.output)
         # ADDER
-        self.accum = IC.UpDownCounter(name='Accum')
+        self.accum = IC.UpDownCounter(10, name='Accum')
         self.accum.wire(self.XNOR.output)
 
     def _initCounters(self):
         # Sizes match those of EEPROMS
         self.layer_counter = IC.Counter(BITS_LAYER, name="L_COUNT")
-        self.node_counter = IC.Counter(BITS_NODES, name="N_COUNT")
-        self.weight_counter = IC.Counter(BITS_WEIGHTS, name="W_COUNT")
+        self.node_counter = IC.Counter(10, name="N_COUNT")
+        self.weight_counter = IC.Counter(10, name="W_COUNT")
+        # * Comparison outputs to notify when to increment
+        self.node_done = logIC.COMPARE(10, name="L_DONE")
+        self.weight_done = logIC.COMPARE(10, name="N_DONE")
+        # Wire to inputs
+        self.node_done.wire(self.node_counter.output, self.LAYER_SIZE.output)
+        self.weight_done.wire(self.weight_counter.output, self.INPUT_SIZE.output)
+        # Wire to each other
+        self.node_counter.wire(self.weight_done.output)
+        self.layer_counter.wire(self.node_done.output)
+        
+    def _wireEEPROM(self):
+        sel = self.weight_counter.output[0:3]       # 3 pins (MUX)
+        addr1 = self.weight_counter.output[3:10]    # 7 pins
+        addr2 = self.node_counter.output[0:9]       # 9 pins
+        addr3 = self.layer_counter.output           # 1 pin
+        w_addr = asyncIC.pins(pins_list=(addr1, addr2, addr3))
+        i_addr = asyncIC.pins(pins_list=(addr1, addr2))
+        # MUXs
+        self.W_MUX.wire(self.WEIGHTS_EEPROM.output, sel)
+        self.I_MUX.wire(self.INPUT1_EEPROM.output, sel)
+        # EEPROMs
+        self.WEIGHTS_EEPROM.wire(w_addr)
+        self.INPUT1_EEPROM.wire(i_addr)
 
-        # Comparison outputs to notify when to increment
-        self.layer_comp = asyncIC.XNOR(BITS_NODES, name="L_DONE")
-        self.node_comp = asyncIC.XNOR(BITS_WEIGHTS, name="N_DONE")
     
     # Given an image, returns the value
     def predict(self, x):
         self.INPUT1_EEPROM.fill3D([[x]], (0, 0, 7))
+        self.nodeMult()
+        return self.accum.raw
         
+    def nodeMult(self):
+        while not self.weight_done:
+            self.clk.pulse()
 
-    def grabAndMult(self):
-        pass
+
+model = Model()
+model.predict(x_test[0])
+
+# x = [1, 2, 3]
+# print(x)
+# print(list(x))
 
 # ### Test to see that xnor + adder work
 # weights = [[[0b00000000, 0b11111111, 0b01010101, 0b01100110]]]
@@ -107,12 +143,3 @@ class model():
 #     print(f'{W_MUX}\t\t{I_MUX}\t\t{accum}')
 # print(accum)
 
-a = asyncIC.pins(10)
-b = asyncIC.pins(10)
-comp = logIC.COMPARE(10, name="COMPARE")
-comp.wire(a, b)
-
-for i in range(10):
-    a.value = i % 5
-    b.value = i % 7
-    print(a.raw, b.raw, comp)
