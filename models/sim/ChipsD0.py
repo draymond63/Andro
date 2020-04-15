@@ -3,7 +3,7 @@
 # ABOUT : Initial software implementation of all the chips used in the circuit - used in AndroD5
 
 if __name__ == "__main__":
-    from ChipsGen import pins, Multiplier
+    from ChipsGen import pins
 else:
     # Package is in sim when it is not the main (Ignore error)
     from sim.ChipsGen import pins, CHIP
@@ -13,11 +13,10 @@ else:
 class EEPROM(CHIP):
     # Define output pins and constants
     def __init__(self, addr_len=12, io_len=8, name=""):
-        self.name = name
+        super(EEPROM, self).__init__(io_len, name=name)
         self.size = (1 << addr_len) - 1 # Measured in bits
         self.addr_width = addr_len
         self.isWriting = 0 # Initially ground rd_wr -> set to read
-        self.output = pins(io_len, name=f"{name} - IO")
 
     @property
     def value(self):
@@ -41,7 +40,7 @@ class EEPROM(CHIP):
         if data_in != None:
             assert isinstance(data_in, pins), f"[EEPROM]\t{self.name} must be driven by pins"
             assert isinstance(rd_wr, pins), f"[EEPROM]\t{self.name} must be driven by pins"
-            assert data_in.width == self.width, f"[EEPROM]\t{self.name} needs {self.width} input pins, but got {data_in.width}"
+            assert data_in.width == self.in_width, f"[EEPROM]\t{self.name} needs {self.in_width} input pins, but got {data_in.width}"
             assert rd_wr.width == 1, f"[EEPROM]\t{self.name} needs 1 pin for rd/wr, but got {rd_wr.width}"
             rd_wr.register_callback(self._updateWr) # Listen to read/write
             self.data_in = data_in
@@ -136,7 +135,7 @@ class FlipFlop(CHIP):
         assert isinstance(data_in, pins), "[FLFP]\tShift Register must be driven by pins"
         assert data_in.width == self.width, f"[FLFP]\tShift Register requires {self.width} input(s), not {data_in.width}"
         self.data_in = data_in
-
+        # If a clock is given, make it update automatically
         if clk:
             clk.register_callback(self.update)
 

@@ -44,7 +44,7 @@ class pins():
         for bit in self.value:
             string += str(bit)
         string = string[::-1]
-        return f"{self.name}: {string}"
+        return f"{string}"
     # * SLICE
     def __getitem__(self, k):
         # Avoid divide by zero error
@@ -110,14 +110,22 @@ class pins():
                 callback()
     def register_callback(self, callback):
         self._callbacks.append(callback)
+    # Wire pin to listen to input 'a'
+    def wire(self, a):
+        assert isinstance(a, pins), f"[PIN]\t{self.name} must have 'a' be an pin"
+        assert a.width == self.width , f"[PIN]\t{self.name} input is size {a.width} when expected {self.width}"
+        def _update():
+            self.value = a.value
+        a._callbacks.append(_update)
 
 # *********************************** CHIP BASE DEFINITION
 class CHIP():
-    def __init__(self, out_len=8, name=""):
+    def __init__(self, out_len=8, val=0, name=""):
         self.name = name
         self._raw = 0
         self._value = 0
-        self.output = pins(out_len, name=f"{name} - Output")
+        self._in_width = out_len
+        self.output = pins(out_len, val=val, name=f"{name} - Output")
 
     @property
     def value(self):
@@ -128,6 +136,9 @@ class CHIP():
     @property
     def width(self):
         return self.output.width
+    @property
+    def in_width(self):
+        return self._in_width # By default, output matches input
     @raw.setter
     def raw(self, val):
         self.output.value = val
@@ -136,26 +147,32 @@ class CHIP():
     def value(self, val):
         self.output.value = val
         self._raw = self.output.raw
+    @in_width.setter
+    def in_width(self, val):
+        self._in_width = val
 
     def __str__(self):
-        return str(self.output)
+        return f"{self.name}: {str(self.output)}"
 
 # ********************************** GATE DEFINITIONS
 class GATE(CHIP):
     # Init is built off CHIP
     def __init__(self, gate_name, expression, out_len, name=""):
-        super(GATE, self).__init__(out_len=out_len)
+        super(GATE, self).__init__(out_len=out_len, name=name)
         self.gate_name = gate_name
         self.expression = expression
     # Connect incoming signals to the chip
-    def wire(self, a, b):
-        assert isinstance(a, pins) and isinstance(b, pins), f"[{self.gate_name}]\t{self.name} must be driven by two output pins"
-        assert a.width == self.width and b.width == self.width, f"[{self.gate_name}]\t{self.name} inputs must be the same size as the ouput: {self.width}"
-        # Listen to both inputs
+    def wire(self, a, b=None):
+        assert isinstance(a, pins), f"[{self.gate_name}]\t{self.name} must have 'a' be an pin"
+        assert a.width == self.in_width , f"[{self.gate_name}]\t{self.name} input a is size {a.width} when chip expected {self.in_width}"
         a.register_callback(self.calc)
-        b.register_callback(self.calc)
         self.a = a
-        self.b = b
+        # Listen to both inputs if they exist
+        if b != None:
+            assert isinstance(b, pins), f"[{self.gate_name}]\t{self.name} must have 'b' be an pin"
+            assert b.width == self.in_width, f"[{self.gate_name}]\t{self.name} input b is size {a.width} when chip expected {self.in_width}"
+            b.register_callback(self.calc)
+            self.b = b
         self.calc() # Run the initial multiplication
     # Run the expression to compute output
     def calc(self):
@@ -170,21 +187,20 @@ class XNOR(GATE):
         super(XNOR, self).__init__("XNOR", self.expr, out_len, name)
     def expr(self, i):
         return self.a.value[i] == self.b.value[i]
-
 class AND(GATE):
     def __init__(self, out_len=1, name=""):
         super(AND, self).__init__("AND", self.expr, out_len, name)
     def expr(self, i):
         return self.a.value[i] and self.b.value[i]
+class NOT(GATE):
+    def __init__(self, out_len=1, name=""):
+        super(NOT, self).__init__("NOT", self.expr, out_len, name)
+    def expr(self, i):
+        return not self.a.value[i]
 
 # ********************************** ASYNC IC DEFINITIONS
 # Selector (Generally used in conjunction with EEPROM)
 class Multiplexor(CHIP):
-    def __init__(self, out_len=1, name=""):
-        self.output = pins(out_len, name=f"{name} - Output")
-        self.out_len = out_len
-        self.name = name
-
     # Return value of output pin if requested
     @property
     def value(self):
@@ -195,7 +211,7 @@ class Multiplexor(CHIP):
 
     # Define input pins
     def wire(self, a, sel):
-        assert a.width == self.out_len << sel.width, f"[MUX]\t{self.name} pin dimensions don't match: {a.width} != {self.out_len} << {sel.width}"
+        assert a.width == self.in_width << sel.width, f"[MUX]\t{self.name} pin dimensions don't match: {a.width} != {self.in_width} << {sel.width}"
         # Save dimensions
         self.in_len = a.width
         self.sel_len = sel.width
@@ -208,7 +224,7 @@ class Multiplexor(CHIP):
     
     def select(self):
         # Get appropriate range
-        sel_rng = (self.sel.raw, self.sel.raw+self.out_len)
+        sel_rng = (self.sel.raw, self.sel.raw + self.width)
         # Parse input and put it into output directly (as a list)
         self.output.value = self.a.value[sel_rng[0]:sel_rng[1]]
 
