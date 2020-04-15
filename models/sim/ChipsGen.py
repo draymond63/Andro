@@ -105,9 +105,9 @@ class pins():
     def _notify_observers(self):
         for callback in self._callbacks:
             try: # Try and pass the value if it is needed
-                callback(self)
-            except:
                 callback()
+            except:
+                callback(self)
     def register_callback(self, callback):
         self._callbacks.append(callback)
     # Wire pin to listen to input 'a'
@@ -165,13 +165,13 @@ class GATE(CHIP):
         self.expression = expression
     # Connect incoming signals to the chip
     def wire(self, a, b=None):
-        assert isinstance(a, pins), f"[{self.gate_name}]\t{self.name} must have 'a' be an pin"
+        assert isinstance(a, pins), f"[{self.gate_name}]\t{self.name} must have 'a' be a pin"
         assert a.width == self.in_width , f"[{self.gate_name}]\t{self.name} input a is size {a.width} when chip expected {self.in_width}"
         a.register_callback(self.calc)
         self.a = a
         # Listen to both inputs if they exist
         if b != None:
-            assert isinstance(b, pins), f"[{self.gate_name}]\t{self.name} must have 'b' be an pin"
+            assert isinstance(b, pins), f"[{self.gate_name}]\t{self.name} must have 'b' be a pin"
             assert b.width == self.in_width, f"[{self.gate_name}]\t{self.name} input b is size {a.width} when chip expected {self.in_width}"
             b.register_callback(self.calc)
             self.b = b
@@ -234,16 +234,18 @@ class Multiplexor(CHIP):
 class CLOCK():
     def __init__(self, tethers=[]):
         self.state = 0
+        self.output = pins(1)
         self._callbacks=[]
         for i in tethers:
             try:    self.sync(i.update)
             except: raise EnvironmentError(f"{i} does not have a function named update")
 
-    def sync(self, callback):
-        self._callbacks.append(lambda: callback() if self.state else None)
+    def sync(self, obj):
+        self._callbacks.append(lambda: obj.update() if self.state else None)
 
     def toggle(self):
         self.state ^= 1
+        self.output.raw = self.state
         for callback in self._callbacks:
             callback()
 
