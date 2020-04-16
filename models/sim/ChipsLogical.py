@@ -27,11 +27,11 @@ class COMPARE(CHIP):
         super(COMPARE, self).__init__(1, name=name)
         self.in_width = in_len
         self.xnor_gate = XNOR(in_len, name=f"{name} - XNOR")
-        self.and_gate = MultiAND(in_len, name=f"{name} - AND")
+        and_gate = MultiAND(in_len, name=f"{name} - AND")
         
         # Internal wiring
-        self.and_gate.wire(self.xnor_gate.output)
-        self.output.wire(self.and_gate.output)
+        and_gate.wire(self.xnor_gate.output)
+        self.output.wire(and_gate.output)
 
     def wire(self, a, b):
         assert isinstance(a, pins) and isinstance(b, pins), f"[COMP]\t{self.name} inputs must be of type pin"

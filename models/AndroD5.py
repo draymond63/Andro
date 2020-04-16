@@ -70,13 +70,14 @@ class Model():
         self.I1_SR = IC.ShiftRegister(name='I1-SR')
         self.I2_SR = IC.ShiftRegister(name='I2-SR')
         # LSB of layer counter choose between EEPROMs
-        self.EEPROM2_RD = self.layer_counter.output[0:1] # 0: INPUT2, 1: INPUT1
-        self.EEPROM1_RD = asyncIC.NOT(1).output
-        self.EEPROM1_RD.wire(self.EEPROM2_RD)
+        self.EEPROM1_RD = self.layer_counter.output[0:1] # 0: INPUT2, 1: INPUT1
+        EEPROM2_RD = asyncIC.NOT(1, name="EEPROM-1-RD")
+        EEPROM2_RD.wire(self.EEPROM1_RD)
+        self.EEPROM2_RD = EEPROM2_RD.output
         # AND write and clk to know when to shift in
         I1_SR_CLK = asyncIC.AND(1)
         I2_SR_CLK = asyncIC.AND(1)
-        I1_SR_CLK.wire(self.clk.output, self.EEPROM2_RD)
+        I1_SR_CLK.wire(self.clk.output, self.EEPROM2_RD) # RDs are backwards to act as write signals
         I2_SR_CLK.wire(self.clk.output, self.EEPROM1_RD)
         # Wire input of SRs to LSB of accum
         i = self.accum.width
@@ -84,7 +85,13 @@ class Model():
         # Wire input of SRs
         self.I1_SR.wire(MSB, I1_SR_CLK.output)
         self.I2_SR.wire(MSB, I2_SR_CLK.output)
-        
+        # Flash pins
+        self.I1_Flash = asyncIC.pins(1, name="I1-Flash")
+        self.I2_Flash = asyncIC.pins(1, name="I2-Flash")
+        # Reverse output of SR because data is loaded in backwards
+        self.I1_SR_OUT = self.I1_SR.output[::-1]
+        self.I2_SR_OUT = self.I2_SR.output[::-1]
+
     def _wireEEPROM(self):
         # Rearrange Address Lines
         sel = self.weight_counter.output[0:3]       # 3 pins (MUX)
@@ -98,8 +105,9 @@ class Model():
         self.I_MUX.wire(self.INPUT1_EEPROM.output, sel)
         # EEPROMs
         self.WEIGHTS_EEPROM.wire(w_addr)
-        self.INPUT1_EEPROM.wire(i_addr, self.I1_SR.output, self.EEPROM1_RD, asyncIC.pins(1))
-        self.INPUT2_EEPROM.wire(i_addr, self.I2_SR.output, self.EEPROM2_RD, asyncIC.pins(1))
+        # ! ADDRESS NEEDS TO BE ABLE TO SWITCH FROM 'i_addr' TO JUST 'self.node_counter // 8'
+        self.INPUT1_EEPROM.wire(i_addr, data_in=self.I1_SR_OUT, rd_wr=self.EEPROM1_RD, flash=self.I1_Flash)
+        self.INPUT2_EEPROM.wire(i_addr, data_in=self.I2_SR_OUT, rd_wr=self.EEPROM2_RD, flash=self.I2_Flash)
 
     # * CALCULATION FUNCTIONS (Should be removed in final iteration)
     # Given an image, returns the value
@@ -109,23 +117,20 @@ class Model():
 
     def layerMult(self):
         while not self.nodes_done:
-            print(self.node_counter.raw, end=": ")
             self.nodeMult()
+            if self.node_counter.raw % 8 == 0:
+                self.I2_Flash.value = 1
+                self.I2_Flash.value = 0
+            # print(self.INPUT2_EEPROM.data[0], self.EEPROM1_RD, self.EEPROM2_RD)
         
     def nodeMult(self):
         while not self.weights_done:
             self.clk.pulse()
-        print(self.accum.raw)
         self.resetNode()
-        self.clk.pulse()
 
     def resetNode(self):
         self.accum.value = 0
         self.weight_counter.value = 0
-    
-    def storeBit(self):
-        bit = self.accum.value[-1]
-        # self.I1_SR
 
 model = Model()
 model.predict(x_test[0])

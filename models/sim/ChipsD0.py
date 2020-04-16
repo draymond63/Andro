@@ -15,9 +15,9 @@ class EEPROM(CHIP):
     def __init__(self, addr_len=12, io_len=8, name=""):
         super(EEPROM, self).__init__(io_len, name=name)
         self.size = (1 << addr_len) - 1 # Measured in bits
-        self.data = [0] * (self.size + 1)
+        self.data = [0] * (self.size + 1) # ? EEPROMS generally store 0xFF as default, not 0
         self.addr_width = addr_len
-        self.isWriting = 0 # Initially ground rd_wr -> set to read
+        self.rd_wr = 0
 
     @property
     def value(self):
@@ -45,18 +45,16 @@ class EEPROM(CHIP):
             assert data_in.width == self.in_width, f"[EEPROM]\t{self.name} needs {self.in_width} input pins, but got {data_in.width}"
             assert rd_wr.width == 1, f"[EEPROM]\t{self.name} needs 1 pin for rd/wr, but got {rd_wr.width}"
             assert flash.width == 1, f"[EEPROM]\t{self.name} needs 1 pin for flash, but got {flash.width}"
-            rd_wr.register_callback(self._updateWr) # Listen to read/write
             flash.register_callback(self.update) # Listen to flash
+            # Save pins
             self.data_in = data_in
             self.flash = flash
-            self.rd_wr = flash
+            self.rd_wr = rd_wr
 
     # * Assumes data is three dimensional - LAYER : NODE : WEIGHT
     def fill3D(self, data, addr_bits_per_dim):
         assert len(addr_bits_per_dim) == 3,  f"[EEPROM]\t{self.name} fill3D requires data is 3 dimensional"
         assert sum(addr_bits_per_dim) <= self.addr_width,  f"[EEPROM]\t{self.name} addr width {self.addr_width} does not match those given to fill3D()"
-        # Get enough memory to pad out with zeroes
-        self.data = [0] * (1 << self.addr_width) # ? EEPROMS generally store 0xFF as default, not 0
         
         layer_size = 1 << addr_bits_per_dim[1]
         weight_size = 1 << addr_bits_per_dim[2]
@@ -79,17 +77,17 @@ class EEPROM(CHIP):
                     index += 1
     
     def display(self):
-        if self.isWriting:
+        if self.rd_wr:
             self.output.value = 0
         else:
             assert self.addr.raw < len(self.data), f"[EEPROM]\t{self.name} Address lines achieved a value of {self.addr.raw}, when max is {len(self.data)}"
             self.output.value = self.data[self.addr.raw]
 
-    def _updateWr(self):
-        self.isWriting = self.rd_wr.raw
     def update(self):
-        if self.isWriting:
-            self.data[self.addr.raw] = self.data_in.raw
+        if self.rd_wr:
+            print(self.addr, self.data_in)
+            if self.flash:
+                self.data[self.addr.raw] = self.data_in.raw
         else:
             raise EnvironmentError(f"[EEPROM]\t{self.name} tried to write to EEPROM with rd_wr pin set to {self.rd_wr.raw}")
 
@@ -141,10 +139,10 @@ class ShiftRegister(CHIP):
 
     def update(self):
         # Shift in data
-        self.raw = self.raw + 1
-        self.raw = self.raw | self.data.raw
+        _raw = self.raw << 1
+        _raw = _raw | self.data.raw # Take the input
+        self.raw = _raw % (1 << self.width)
         # Ignore overflow
-        self.raw = self.raw % (1 << self.width)
 
 class FlipFlop(CHIP):
     def wire(self, data_in, clk=None):

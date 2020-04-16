@@ -2,6 +2,8 @@
 # DATE  : 2020-04-013
 # ABOUT : Async pieces that all generations can use
 
+from inspect import signature
+
 # *********************************** PIN DEFINITION
 class pins():
     def __init__(self, length=1, val=0, pins_list=None, name=""):
@@ -49,21 +51,34 @@ class pins():
     def __getitem__(self, k):
         # Avoid divide by zero error
         step = k.step if k.step else 1
-        assert (k.stop-k.start)//step > 0, f"[PIN]\t{self.name} Improper slice"
+        assert step == 1 or step == -1, f"[PIN]\t{self.name} Pins only support steps of either -1 or 1, not {step}"
+        # Allows for empty positions in the slice
+        if k.start is None: start = 0 if step == 1 else self.width
+        else: start = k.start
+        if k.stop is None: stop = 0 if step == -1 else self.width
+        else: stop = k.stop
+        assert (stop-start)//step > 0, f"[PIN]\t{self.name} Improper slice"
         # Create new set of pins
-        temp_pins = pins( (k.stop-k.start)//step, name=f"{self.name}[{k.start}:{k.stop}:{step}]" )
-        temp_pins.start = k.start
-        temp_pins.end = k.stop
-        temp_pins.step = step
+        _sliced_pins = pins( abs(stop-start), name=f"{self.name}[{start}:{stop}:{step}]" )
+        _sliced_pins.start = start
+        _sliced_pins.stop = stop
+        _sliced_pins.step = step
         # Force new pins to update with current ones
-        self.register_callback(temp_pins._force_update)
-        temp_pins._force_update(self)
-        return temp_pins
+        self.register_callback(_sliced_pins._force_update)
+        _sliced_pins._force_update(self)
+        return _sliced_pins
+    # * BOOL
+    def __bool__(self):
+        return bool(self.raw)
 
     # * Only used with __getitem__
     def _force_update(self, input_pin):
-        if self.step <= 0:  self.value = input_pin.value[ self.start:self.end - 1:self.step ]
-        else:               self.value = input_pin.value[ self.start:self.end    :self.step ]
+        if self.width == input_pin.width: 
+            self.value = input_pin.value[::-1]
+        elif self.step <= 0: 
+            self.value = input_pin.value[ self.start:self.stop - 1:self.step ]
+        else:
+            self.value = input_pin.value[ self.start:self.stop    :self.step ]
 
     # Setters
     @raw.setter
@@ -104,10 +119,12 @@ class pins():
     # Let all async objects update
     def _notify_observers(self):
         for callback in self._callbacks:
-            try: # Try and pass the value if it is needed
-                callback()
-            except:
+            # If the callback needs a parameter
+            if len(signature(callback).parameters) == 1:
                 callback(self)
+            else:
+                callback()
+
     def register_callback(self, callback):
         self._callbacks.append(callback)
     # Wire pin to listen to input 'a'
