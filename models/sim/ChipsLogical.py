@@ -2,7 +2,6 @@
 # DATE  : 2020-04-014
 # ABOUT : Logical combinations that are a combination of multiple ICs
 
-
 if __name__ == "__main__":
     from ChipsGen import pins, XNOR, AND, CHIP, GATE
 else:

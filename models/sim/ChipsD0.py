@@ -85,7 +85,7 @@ class EEPROM(CHIP):
 
     def update(self):
         if self.rd_wr:
-            print(self.addr, self.data_in)
+            # print(self.addr, self.data_in)
             if self.flash:
                 self.data[self.addr.raw] = self.data_in.raw
         else:
@@ -103,8 +103,11 @@ class UpDownCounter(CHIP):
         # clk.register_callback(self.update)
 
     def update(self):
-        self.raw = self.raw + 1 if self.up_down.raw else self.raw - 1
-        self.value = self.raw # Update array in value
+        try:
+            self.raw += 1 if self.up_down else -1
+            self.value = self.raw # Update array in value
+        except AttributeError:
+            print(f"[UPDWN]\t{self.name} has not been wired, but an update has been triggered (FLOATING INPUT)")
 
 # Increments with update/clk
 class Counter(CHIP):
@@ -123,7 +126,7 @@ class Counter(CHIP):
     def update(self):
         self.raw = self.raw + 1
 
-# ? D1 Needs latch and clock
+# ? D1 Needs latch
 class ShiftRegister(CHIP):
     # Wire inputs
     def wire(self, data, clk=None):
@@ -141,8 +144,9 @@ class ShiftRegister(CHIP):
         # Shift in data
         _raw = self.raw << 1
         _raw = _raw | self.data.raw # Take the input
-        self.raw = _raw % (1 << self.width)
         # Ignore overflow
+        self.raw = _raw % (1 << self.width)
+        self.value = self.raw
 
 class FlipFlop(CHIP):
     def wire(self, data_in, clk=None):

@@ -6,7 +6,7 @@ from src.data_packed import x_test, y_test, weights, shape
 import sim.ChipsD0 as IC
 import sim.ChipsGen as asyncIC
 import sim.ChipsLogical as logIC
-from tqdm import tqdm
+# from tqdm import tqdm
 
 BITS_LAYER = 1
 BITS_NODES = 9
@@ -64,21 +64,21 @@ class Model():
         self.weights_done.wire(self.weight_counter.output, self.INPUT_SIZE.output)
         # Wire to each other
         self.node_counter.wire(self.weights_done.output)
-        self.layer_counter.wire(self.nodes_done.output) #! Shit breaks
+        self.layer_counter.wire(self.nodes_done.output)
 
     def _initRestore(self):
         self.I1_SR = IC.ShiftRegister(name='I1-SR')
         self.I2_SR = IC.ShiftRegister(name='I2-SR')
         # LSB of layer counter choose between EEPROMs
-        self.EEPROM1_RD = self.layer_counter.output[0:1] # 0: INPUT2, 1: INPUT1
+        self.EEPROM1_RD = self.layer_counter.output[0:1] # 0: READ INPUT2, 1: READ INPUT1
         EEPROM2_RD = asyncIC.NOT(1, name="EEPROM-1-RD")
         EEPROM2_RD.wire(self.EEPROM1_RD)
         self.EEPROM2_RD = EEPROM2_RD.output
         # AND write and clk to know when to shift in
         I1_SR_CLK = asyncIC.AND(1)
         I2_SR_CLK = asyncIC.AND(1)
-        I1_SR_CLK.wire(self.clk.output, self.EEPROM2_RD) # RDs are backwards to act as write signals
-        I2_SR_CLK.wire(self.clk.output, self.EEPROM1_RD)
+        I1_SR_CLK.wire(self.weights_done.output, self.EEPROM2_RD) # RDs are backwards to act as write signals
+        I2_SR_CLK.wire(self.weights_done.output, self.EEPROM1_RD)
         # Wire input of SRs to LSB of accum
         i = self.accum.width
         MSB = self.accum.output[i-1:i] # Take the MSB
@@ -121,7 +121,6 @@ class Model():
             if self.node_counter.raw % 8 == 0:
                 self.I2_Flash.value = 1
                 self.I2_Flash.value = 0
-            # print(self.INPUT2_EEPROM.data[0], self.EEPROM1_RD, self.EEPROM2_RD)
         
     def nodeMult(self):
         while not self.weights_done:

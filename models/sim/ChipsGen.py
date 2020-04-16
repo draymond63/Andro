@@ -57,7 +57,6 @@ class pins():
         else: start = k.start
         if k.stop is None: stop = 0 if step == -1 else self.width
         else: stop = k.stop
-        assert (stop-start)//step > 0, f"[PIN]\t{self.name} Improper slice"
         # Create new set of pins
         _sliced_pins = pins( abs(stop-start), name=f"{self.name}[{start}:{stop}:{step}]" )
         _sliced_pins.start = start
