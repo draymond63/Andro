@@ -19,7 +19,8 @@ class Model():
         self._initEEPROM()
         self._initMult()
         self._initCounters()
-        self._initRestore()
+        self._initSrRestore()
+        self._initAddrRestore()
         self._wireEEPROM()
 
         self.clk.sync(self.accum)
@@ -42,11 +43,11 @@ class Model():
 
     def _initMult(self):
         # MUXs
-        self.W_MUX = asyncIC.Multiplexor(out_len=1, name='Weights-Mux')
-        self.I_MUX = asyncIC.Multiplexor(out_len=1, name='Inputs-Mux')
+        self.W_OUT_MUX = asyncIC.bitMux(name='Weights-Mux')
+        self.I_OUT_MUX = asyncIC.bitMux(name='Inputs-Mux')
         # MULTIPLIER
         self.XNOR = asyncIC.XNOR(name='Multiplier')
-        self.XNOR.wire(self.W_MUX.output, self.I_MUX.output)
+        self.XNOR.wire(self.W_OUT_MUX.output, self.I_OUT_MUX.output)
         # ADDER
         self.accum = IC.UpDownCounter(10, name='Accum')
         self.accum.wire(self.XNOR.output)
@@ -66,7 +67,7 @@ class Model():
         self.node_counter.wire(self.weights_done.output)
         self.layer_counter.wire(self.nodes_done.output)
 
-    def _initRestore(self):
+    def _initSrRestore(self):
         self.I1_SR = IC.ShiftRegister(name='I1-SR')
         self.I2_SR = IC.ShiftRegister(name='I2-SR')
         # LSB of layer counter choose between EEPROMs
@@ -92,22 +93,29 @@ class Model():
         self.I1_SR_OUT = self.I1_SR.output[::-1]
         self.I2_SR_OUT = self.I2_SR.output[::-1]
 
-    def _wireEEPROM(self):
-        # Rearrange Address Lines
-        sel = self.weight_counter.output[0:3]       # 3 pins (MUX)
+    def _initAddrRestore(self):
+        # Rearrange outputing address lines
         addr1 = self.weight_counter.output[3:10]    # 7 pins
         addr2 = self.node_counter.output[0:9]       # 9 pins
-        addr3 = self.layer_counter.output           # 1 pin
-        w_addr = asyncIC.pins(pins_list=(addr1, addr2, addr3))
-        i_addr = asyncIC.pins(pins_list=(addr1, addr2))
+        self.w_addr = asyncIC.pins(pins_list=(addr1, addr2, self.layer_counter.output)) # 17
+        # Input EEPROMs address deciding
+        i_addr_active = asyncIC.pins(pins_list=(addr1, addr2))                  # 16
+        # i_addr_reading = asyncIC.pins(pins_list=(self.weight_counter.output[6:10],))   # 6 pins
+        self.I1_ADDR_MUX = asyncIC.Mux(16, name='I1-ADDR-MUX')
+        self.I2_ADDR_MUX = asyncIC.Mux(16, name='I2-ADDR-MUX')
+        self.I1_ADDR_MUX.wire(i_addr_active, addr1, self.EEPROM1_RD)
+        self.I2_ADDR_MUX.wire(i_addr_active, addr1, self.EEPROM2_RD)
+
+    def _wireEEPROM(self):        
         # MUXs
-        self.W_MUX.wire(self.WEIGHTS_EEPROM.output, sel)
-        self.I_MUX.wire(self.INPUT1_EEPROM.output, sel)
+        sel = self.weight_counter.output[0:3]  # 3 pins (MUX)
+        self.W_OUT_MUX.wire(self.WEIGHTS_EEPROM.output, sel)
+        self.I_OUT_MUX.wire(self.INPUT1_EEPROM.output, sel)
         # EEPROMs
-        self.WEIGHTS_EEPROM.wire(w_addr)
+        self.WEIGHTS_EEPROM.wire(self.w_addr)
         # ! ADDRESS NEEDS TO BE ABLE TO SWITCH FROM 'i_addr' TO JUST 'self.node_counter // 8'
-        self.INPUT1_EEPROM.wire(i_addr, data_in=self.I1_SR_OUT, rd_wr=self.EEPROM1_RD, flash=self.I1_Flash)
-        self.INPUT2_EEPROM.wire(i_addr, data_in=self.I2_SR_OUT, rd_wr=self.EEPROM2_RD, flash=self.I2_Flash)
+        self.INPUT1_EEPROM.wire(addr=self.I1_ADDR_MUX.output, data_in=self.I1_SR_OUT, rd_wr=self.EEPROM1_RD, flash=self.I1_Flash)
+        self.INPUT2_EEPROM.wire(addr=self.I2_ADDR_MUX.output, data_in=self.I2_SR_OUT, rd_wr=self.EEPROM2_RD, flash=self.I2_Flash)
 
     # * CALCULATION FUNCTIONS (Should be removed in final iteration)
     # Given an image, returns the value

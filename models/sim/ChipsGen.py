@@ -26,7 +26,9 @@ class pins():
             self.max_val = 2 ** self.width - 1
 
             for pins_sel in pins_list:
+                assert isinstance(pins_sel, pins), f"[PINS]\t{self.name} pins_list must only contain pins objects, not {type(pins_sel)}"
                 pins_sel.register_callback(self._updateGroup)
+
             self._updateGroup()
 
     # Getters and Setters
@@ -113,7 +115,6 @@ class pins():
         for pin_group in self.pins_list:
             temp.extend( pin_group.value )
         self.value = temp
-                
 
     # Let all async objects update
     def _notify_observers(self):
@@ -126,6 +127,7 @@ class pins():
 
     def register_callback(self, callback):
         self._callbacks.append(callback)
+
     # Wire pin to listen to input 'a'
     def wire(self, a):
         assert isinstance(a, pins), f"[PIN]\t{self.name} must have 'a' be an pin"
@@ -141,7 +143,7 @@ class CHIP():
         self._raw = 0
         self._value = 0
         self._in_width = out_len
-        self.output = pins(out_len, val=val, name=f"{name} - Output")
+        self.output = pins(out_len, val=val, name=name)
 
     @property
     def value(self):
@@ -217,19 +219,17 @@ class NOT(GATE):
         return not self.a.value[i]
 
 # ********************************** ASYNC IC DEFINITIONS
-# Selector (Generally used in conjunction with EEPROM)
-class Multiplexor(CHIP):
-    # Return value of output pin if requested
-    @property
-    def value(self):
-        return self.output.value
-    @property
-    def raw(self):
-        return self.output.raw
-
+# Selects one bit out of the input (Generally used in conjunction with EEPROM)
+class bitMux(CHIP):
+    def __init__(self, name=""):
+        self.name = name
+        self._raw = 0
+        self._value = 0
+        self._in_width = 1
+        self.output = pins(1, name=name)
     # Define input pins
     def wire(self, a, sel):
-        assert a.width == self.in_width << sel.width, f"[MUX]\t{self.name} pin dimensions don't match: {a.width} != {self.in_width} << {sel.width}"
+        assert a.width == 1 << sel.width, f"[MUX]\t{self.name} pin dimensions don't match: {a.width} != 1 << {sel.width}"
         # Save dimensions
         self.in_len = a.width
         self.sel_len = sel.width
@@ -239,12 +239,34 @@ class Multiplexor(CHIP):
         self.a = a
         self.sel = sel
         self.select() # Initialize state
+    # Parse input and put it into output directly (as a list)
+    def select(self):
+        self.value = self.a.value[self.sel.raw:self.sel.raw+1]
+
+# Choose between two different inputs
+class Mux(CHIP):
+    # Define input pins
+    def wire(self, a, b, sel):
+        assert a.width <= self.in_width, f"[MUX]\t{self.name} pin dimensions don't match: {a.width} != {self.in_width}"
+        assert b.width <= self.in_width, f"[MUX]\t{self.name} pin dimensions don't match: {b.width} != {self.in_width}"
+        assert sel.width == 1, f"[MUX]\t{self.name} select pin must be a width of 1"
+        # Save dimensions
+        self.in_len = a.width
+        # Multiplexor is async so always update with inputs
+        a.register_callback(self.select)
+        b.register_callback(self.select)
+        sel.register_callback(self.select)
+        self.a = a
+        self.b = b
+        self.sel = sel
+        self.select() # Initialize state
     
     def select(self):
-        # Get appropriate range
-        sel_rng = (self.sel.raw, self.sel.raw + self.width)
-        # Parse input and put it into output directly (as a list)
-        self.output.value = self.a.value[sel_rng[0]:sel_rng[1]]
+        # Allows widths less than output width (HW: the other inputs need to be grounded)
+        if self.sel:
+            self.raw = self.b.raw
+        else:
+            self.raw = self.a.raw
 
 # ********************************** CLOCK DEFINITION
 class CLOCK():
