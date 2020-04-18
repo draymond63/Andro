@@ -83,9 +83,11 @@ class Model():
         # Wire input of SRs to LSB of accum
         i = self.accum.width
         MSB = self.accum.output[i-1:i] # Take the MSB
+        quantI = asyncIC.NOT(name='Accum-Quantized')
+        quantI.wire(MSB)
         # Wire input of SRs
-        self.I1_SR.wire(MSB, I1_SR_CLK.output)
-        self.I2_SR.wire(MSB, I2_SR_CLK.output)
+        self.I1_SR.wire(quantI.output, I1_SR_CLK.output)
+        self.I2_SR.wire(quantI.output, I2_SR_CLK.output)
         # Flash pins
         self.I1_Flash = asyncIC.pins(1, name="I1-Flash")
         self.I2_Flash = asyncIC.pins(1, name="I2-Flash")
@@ -132,7 +134,7 @@ class Model():
             if self.node_counter.raw % 8 == 0:
                 self.I2_Flash.value = 1
                 self.I2_Flash.value = 0
-            print("EEPROM: ", self.INPUT2_EEPROM.data[0:5])
+            print("EEPROM: ", self.INPUT2_EEPROM.binData(0, 5))
         
     def nodeMult(self):
         while not self.weights_done:

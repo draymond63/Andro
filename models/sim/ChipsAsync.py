@@ -291,6 +291,12 @@ class EEPROM(CHIP):
     @property
     def raw(self):
         return self.output.raw
+    def binData(self, start, end):
+        string = ''
+        for el in self.data[start:end]:
+            string += format(el, '#010b')
+            string += '\t'
+        return string
 
     # Define input pins
     def wire(self, addr, data_in=None, rd_wr=None, flash=None):
