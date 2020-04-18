@@ -99,7 +99,7 @@ class pins():
             self._raw = raw >> 1
         # If value given is a raw value
         elif isinstance(val, int):
-            assert val <= self.max_val, f"[PIN]\t{self.name} expected value below {self.max_val}. Bit length: {self.width}"
+            assert val <= self.max_val, f"[PIN]\t{self.name} expected value below {self.max_val}, but got {val}"
             self._raw = val
             # Split bits into array
             for i in range(self.width):
@@ -155,10 +155,14 @@ class CHIP():
     def width(self):
         return self.output.width
     @property
+    def max_val(self):
+        return self.output.max_val
+    @property
     def in_width(self):
         return self._in_width # By default, output matches input
     @raw.setter
     def raw(self, val):
+        assert isinstance(val, int), f"[GENIC]\t{self.name} raw setter needs object of type int, not {type(val)}"
         self.output.value = val
         self._raw = val
     @value.setter
@@ -268,43 +272,87 @@ class Mux(CHIP):
         else:
             self.raw = self.a.raw
 
-# ********************************** CLOCK DEFINITION
-class CLOCK():
-    def __init__(self, tethers=[]):
-        self.state = 0
-        self.output = pins(1)
-        self._callbacks=[]
-        for i in tethers:
-            try:    self.sync(i.update)
-            except: raise EnvironmentError(f"{i} does not have a function named update")
 
-    def sync(self, obj):
-        self._callbacks.append(lambda: obj.update() if self.state else None)
 
-    def toggle(self):
-        self.state ^= 1
-        self.output.raw = self.state
-        for callback in self._callbacks:
-            callback()
+# ******************************************************** EEPROM DEFINITION
+# ? D1 needs to have i/o pins together
+class EEPROM(CHIP):
+    # Define output pins and constants
+    def __init__(self, addr_len=12, io_len=8, name=""):
+        super(EEPROM, self).__init__(io_len, name=name)
+        self.size = (1 << addr_len) - 1 # Measured in bits
+        self.data = [0] * (self.size + 1) # ? EEPROMS generally store 0xFF as default, not 0
+        self.addr_width = addr_len
+        self.rd_wr = 0
 
-    def pulse(self, times=1):
-        for _ in range(2 * times):
-            self.toggle()
+    @property
+    def value(self):
+        return self.output.value
+    @property
+    def raw(self):
+        return self.output.raw
 
-    def __bool__(self):
-        return bool(self.state)
+    # Define input pins
+    def wire(self, addr, data_in=None, rd_wr=None, flash=None):
+        # Make sure they are pins
+        assert isinstance(addr, pins), f"[EEPROM]\t{self.name} must be driven by pins"
+        # Make sure they are the correct widths
+        assert addr.width == self.addr_width, f"[EEPROM]\t{self.name} needs {self.addr_width} address pins, but got {addr.width}"
+        # Listen to input pins
+        addr.register_callback(self.display)
+        self.addr = addr # Create input pin references
+        self.display() # Initially display the data
 
-# o1 = pins(1)
-# o2 = pins(2)
-# mult = Multiplier()
-# mult.wire(o1, o2)
+        # Optional input
+        if data_in != None:
+            assert isinstance(data_in, pins), f"[EEPROM]\t{self.name} must be driven by pins"
+            assert isinstance(rd_wr, pins), f"[EEPROM]\t{self.name} must be driven by pins"
+            assert isinstance(flash, pins), f"[EEPROM]\t{self.name} must be driven by pins"
+            assert data_in.width == self.in_width, f"[EEPROM]\t{self.name} needs {self.in_width} input pins, but got {data_in.width}"
+            assert rd_wr.width == 1, f"[EEPROM]\t{self.name} needs 1 pin for rd/wr, but got {rd_wr.width}"
+            assert flash.width == 1, f"[EEPROM]\t{self.name} needs 1 pin for flash, but got {flash.width}"
+            flash.register_callback(self.update) # Listen to flash
+            # Save pins
+            self.data_in = data_in
+            self.flash = flash
+            self.rd_wr = rd_wr
 
-# print(o1.value, o2.value, mult.value)
-# o1.value = 1
-# print(o1.value, o2.value, mult.value)
-# o2.value = 1
-# print(o1.value, o2.value, mult.value)
-# o1.value = 0
-# print(o1.value, o2.value, mult.value)
-# o2.value = 0
-# print(o1.value, o2.value, mult.value)
+    # * Assumes data is three dimensional - LAYER : NODE : WEIGHT
+    def fill3D(self, data, addr_bits_per_dim):
+        assert len(addr_bits_per_dim) == 3,  f"[EEPROM]\t{self.name} fill3D requires data is 3 dimensional"
+        assert sum(addr_bits_per_dim) <= self.addr_width,  f"[EEPROM]\t{self.name} addr width {self.addr_width} does not match those given to fill3D()"
+        
+        layer_size = 1 << addr_bits_per_dim[1]
+        weight_size = 1 << addr_bits_per_dim[2]
+        emptyNode = [0] * weight_size     
+
+        # Pad data with zeros
+        for layer in data:
+            # Extend nodes to be same length as weight size
+            for node in layer:
+                node.extend( [0] * (weight_size - len(node)) )
+            # Make enough dummy nodes to pad out layer
+            layer.extend( [emptyNode] * (layer_size - len(layer)) ) 
+
+        # Iterate through data and linearize it
+        index = 0
+        for layer in data:
+            for node in layer:
+                for eight_weights in node:
+                    self.data[index] = eight_weights
+                    index += 1
+    
+    def display(self):
+        if self.rd_wr:
+            self.output.value = 0
+        else:
+            assert self.addr.raw < len(self.data), f"[EEPROM]\t{self.name} Address lines achieved a value of {self.addr.raw}, when max is {len(self.data)}"
+            self.output.value = self.data[self.addr.raw]
+
+    def update(self):
+        if self.flash:
+            if self.rd_wr:
+                # print(self.addr, self.data_in)
+                self.data[self.addr.raw] = self.data_in.raw
+            else:
+                raise EnvironmentError(f"[EEPROM]\t{self.name} tried to write to EEPROM with rd_wr pin set to {self.rd_wr.raw}")
