@@ -177,6 +177,10 @@ class CHIP():
         return f"{self.name}: {str(self.output)}"
     def __bool__(self):
         return bool(self.raw)
+    # * SLICE
+    def __getitem__(self, k):
+        _sliced_pins = self.output.__getitem__(k)
+        return _sliced_pins
 
 # ********************************** GATE DEFINITIONS
 class GATE(CHIP):
@@ -292,7 +296,7 @@ class EEPROM(CHIP):
     def raw(self):
         return self.output.raw
     def binData(self, start, end):
-        string = ''
+        string = f'{self.name}: '
         for el in self.data[start:end]:
             string += format(el, '#010b')
             string += '\t'
