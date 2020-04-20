@@ -76,7 +76,7 @@ class Counter(ClockedChip):
         super(Counter, self).__init__(out_len=out_len, val=val, name=name)
         self.reset = None # Initialize data_in
 
-    def wire(self, load=None, reset=None, clk=None):
+    def wire(self, clk=None, load=None, reset=None):
         # Reset config
         if isinstance(reset, pins):
             assert isinstance(load, pins), f"[COUNT]\t{self.name} load must be a pins object, not {type(load)}"

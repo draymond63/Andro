@@ -210,21 +210,75 @@ class GATE(CHIP):
             else:                   temp.append(0)
         self.value = temp
 
-class XNOR(GATE):
+class XOR(GATE):
     def __init__(self, out_len=1, name=""):
-        super(XNOR, self).__init__("XNOR", self.expr, out_len, name)
+        super(XOR, self).__init__("XOR", self.expr, out_len, name)
     def expr(self, i):
-        return self.a.value[i] == self.b.value[i]
+        return self.a.value[i] != self.b.value[i]
 class AND(GATE):
     def __init__(self, out_len=1, name=""):
         super(AND, self).__init__("AND", self.expr, out_len, name)
     def expr(self, i):
         return self.a.value[i] and self.b.value[i]
+class OR(GATE):
+    def __init__(self, out_len=1, name=""):
+        super(OR, self).__init__("OR", self.expr, out_len, name)
+    def expr(self, i):
+        return self.a.value[i] or self.b.value[i]
+# * NOTTED VERSIONS
 class NOT(GATE):
     def __init__(self, out_len=1, name=""):
         super(NOT, self).__init__("NOT", self.expr, out_len, name)
     def expr(self, i):
         return not self.a.value[i]
+class XNOR(GATE):
+    def __init__(self, out_len=1, name=""):
+        super(XNOR, self).__init__("XNOR", self.expr, out_len, name)
+    def expr(self, i):
+        return self.a.value[i] == self.b.value[i]
+class NAND(GATE):
+    def __init__(self, out_len=1, name=""):
+        super(NAND, self).__init__("NAND", self.expr, out_len, name)
+    def expr(self, i):
+        return not (self.a.value[i] and self.b.value[i])
+class NOR(GATE):
+    def __init__(self, out_len=1, name=""):
+        super(NOR, self).__init__("NOR", self.expr, out_len, name)
+    def expr(self, i):
+        return not (self.a.value[i] or self.b.value[i])
+
+# * SINGLE INPUT GATES
+class bitGate(GATE):
+    def __init__(self, gate_name, expression, in_len, name=""):
+        super(bitGate, self).__init__(gate_name, expression, 1, name)
+        self.in_width = in_len
+class bitAnd(bitGate):
+    def __init__(self, in_len=1, name=""):
+        super(bitAnd, self).__init__("bAND", self.expr, in_len, name)
+    def expr(self, i):
+        # Make sure all of input is on
+        for a in self.a.value:
+            if not a: # If anything is not on, AND is off
+                return False
+        return True
+class bitNOR(bitGate):
+    def __init__(self, in_len=1, name=""):
+        super(bitNOR, self).__init__("bNOR", self.expr, in_len, name)
+    def expr(self, i):
+        # Make sure all of input is on
+        for a in self.a.value:
+            if a: # If anything is on, NOR is off
+                return False
+        return True
+class bitOR(bitGate):
+    def __init__(self, in_len=1, name=""):
+        super(bitOR, self).__init__("bOR", self.expr, in_len, name)
+    def expr(self, i):
+        # Make sure all of input is on
+        for a in self.a.value:
+            if a: # If anything is on, NOR is off
+                return True
+        return False
 
 # ********************************** ASYNC IC DEFINITIONS
 # Selects one bit out of the input (Generally used in conjunction with EEPROM)
@@ -334,7 +388,7 @@ class EEPROM(CHIP):
         
         layer_size = 1 << addr_bits_per_dim[1]
         weight_size = 1 << addr_bits_per_dim[2]
-        emptyNode = [0] * weight_size     
+        emptyNode = [0] * weight_size # Doesn't matter that this is pass by reference since all the values are getting inserted into self.data  
 
         # Pad data with zeros
         for layer in data:
@@ -360,9 +414,6 @@ class EEPROM(CHIP):
             self.output.value = self.data[self.addr.raw]
 
     def update(self):
-        if self.flash:
-            if self.rd_wr:
-                # print(self.addr, self.data_in)
-                self.data[self.addr.raw] = self.data_in.raw
-            else:
-                raise EnvironmentError(f"[EEPROM]\t{self.name} tried to write to EEPROM with rd_wr pin set to {self.rd_wr.raw}")
+        if self.flash and self.rd_wr:
+            print(f"FLASHING {self.name} with {self.data_in} at {self.addr.raw}")
+            self.data[self.addr.raw] = self.data_in.raw

@@ -60,10 +60,10 @@ class Model():
         self.layer_done.wire(self.node_counter.output, self.LAYER_SIZE.output)
         self.node_done.wire(self.weight_counter.output, self.INPUT_SIZE.output)
         # Wire to each other
-        self.node_counter.wire(self.node_done.output)
-        self.layer_counter.wire(self.layer_done.output)
+        self.node_counter.wire(clk=self.node_done.output)
+        self.layer_counter.wire(clk=self.layer_done.output)
         # Create delayed signal for shifting the shape
-        self.layer_done_delayed = IC.FlipFlop(1, name='L-DONE')
+        self.layer_done_delayed = IC.FlipFlop(1, name='L-DONE #1')
         self.layer_done_delayed.wire(self.layer_done.output, self.clk)
         self.layer_done_delayed = self.layer_done_delayed.output
         # Wire SHAPE output
@@ -119,9 +119,11 @@ class Model():
         # Wire input of SRs
         self.I1_SR.wire(quantI.output, I1_SR_CLK.output)
         self.I2_SR.wire(quantI.output, I2_SR_CLK.output)
-        # Flash pins
-        self.I1_Flash = asyncIC.pins(1, name="I1-Flash")
-        self.I2_Flash = asyncIC.pins(1, name="I2-Flash")
+        # Flash pins (activates when node_counter % 8 == 0 (3 LSB == 0)) # ! DOESNT WORK YET (FLASHING AT THE WRONG TIME)
+        self.input_flash = asyncIC.bitNOR(3, name='INPUT-FLASH')
+        self.input_flash.wire(self.node_counter[0:3])
+        self.input_flash_delayed = IC.FlipFlop(1, name='INPUT-FLASH #1')
+        self.input_flash_delayed.wire(self.input_flash.output, self.node_done.output)
         # Reverse output of SR because data is loaded in backwards
         self.I1_SR_OUT = self.I1_SR.output[::-1]
         self.I2_SR_OUT = self.I2_SR.output[::-1]
@@ -150,8 +152,8 @@ class Model():
         ### EEPROMs
         self.WEIGHTS_EEPROM.wire(self.w_addr)
         # Address switches 'i_addr' to 'self.node_counter // 8' depending on the r/w state
-        self.INPUT1_EEPROM.wire(addr=self.I1_ADDR_MUX.output, data_in=self.I1_SR_OUT, rd_wr=self.I1_RD_delayed, flash=self.I1_Flash)
-        self.INPUT2_EEPROM.wire(addr=self.I2_ADDR_MUX.output, data_in=self.I2_SR_OUT, rd_wr=self.I2_RD_delayed, flash=self.I2_Flash)
+        self.INPUT1_EEPROM.wire(addr=self.I1_ADDR_MUX.output, data_in=self.I1_SR_OUT, rd_wr=self.I1_RD_delayed, flash=self.input_flash_delayed.output)
+        self.INPUT2_EEPROM.wire(addr=self.I2_ADDR_MUX.output, data_in=self.I2_SR_OUT, rd_wr=self.I2_RD_delayed, flash=self.input_flash_delayed.output)
 
     # * CALCULATION FUNCTIONS (Should be removed in final iteration except predict function)
     # Given an image, returns the value
@@ -173,9 +175,6 @@ class Model():
     def layerMult(self):
         while not self.layer_done:
             self.nodeMult()
-            if self.node_counter.raw % 8 == 0:
-                self.I2_Flash.value = 1 # ! Time to create these in hardware
-                self.I2_Flash.value = 0
         
         self.SHAPE_EEPROM.output.value = 10 # Temporarily change value
         self.clk.pulse() # One more clock pulse and the rd/wr changes

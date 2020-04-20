@@ -3,25 +3,12 @@
 # ABOUT : Logical combinations that are a combination of multiple ICs
 
 if __name__ == "__main__":
-    from ChipsAsync import pins, XNOR, AND, CHIP, GATE
+    from ChipsAsync import pins, XNOR, bitAnd, CHIP
 else:
     # Package is in sim when it is not the main (Ignore error)
-    from sim.ChipsAsync import pins, XNOR, AND, CHIP, GATE
+    from sim.ChipsAsync import pins, XNOR, bitAnd, CHIP
 
-# Takes all of one signal and ANDs it together
-class bitAnd(GATE):
-    def __init__(self, in_len=2, name=""):
-        super(bitAnd, self).__init__("mAND", self.expr, 1, name)
-        self.in_width = in_len
-    def expr(self, i):
-        # Make sure all of input is on
-        isAND = True
-        for a in self.a.value:
-            if not a: 
-                isAND = False
-        return isAND
-
-# Uses XNOR to AND to turn on when signals are equivalent
+# Uses XNOR to AND to turn on when signals are equivalent # ! Make purely python to increase efficiency
 class Comparator(CHIP):
     def __init__(self, in_len, name=""):
         super(Comparator, self).__init__(1, name=name)
