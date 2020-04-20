@@ -173,7 +173,7 @@ class Model():
         while not self.layer_done:
             self.nodeMult()
             if self.node_counter.raw % 8 == 0:
-                self.I2_Flash.value = 1
+                self.I2_Flash.value = 1 # ! Time to create these in hardware
                 self.I2_Flash.value = 0
         
         self.SHAPE_EEPROM.output.value = 10 # Temporarily change value
@@ -188,4 +188,4 @@ class Model():
         self.weight_counter.value = 0
 
 model = Model()
-model.predict(x_test[0], (0, 509, 0)) # (0, 480, 0)
+model.predict(x_test[0]) # (0, 508, 0)

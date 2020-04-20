@@ -48,11 +48,20 @@ class ClockedChip(CHIP):
 # Accumulator for node math
 class UpDownCounter(ClockedChip):
     # Connect incoming signals to the chip
-    def wire(self, up_down):
+    def wire(self, up_down, clk=None):
         assert isinstance(up_down, pins), "[UPDWN]\tCounter must be driven by pins"
         assert up_down.width == 1, f"[UPDWN]\tCounter only needs one bit of input, not {up_down.width}"
         # Create input pins
         self.up_down = up_down
+        # Optional clock
+        if isinstance(clk, pins):
+            assert clk.width == 1, f"[UPDWN]\t{self.name} clock must be 1 bit, not {clk.width}"
+            self.clk = clk
+            clk.register_callback(lambda: self.update() if self.clk.raw else None)
+        elif isinstance(clk, CLOCK):
+            clk.sync(self)
+        elif clk is not None:
+            raise AssertionError(f"[UPDWN]\t{self.name} clock must a clock or pins object, not {type(clk)}")
 
     def _calculate(self):
         try:
@@ -63,20 +72,34 @@ class UpDownCounter(ClockedChip):
 
 # Increments with update/clk
 class Counter(ClockedChip):
-    def wire(self, clk):
-        assert isinstance(clk, pins), "[COUNT]\tCounter must be driven by pins"
-        assert clk.width == 1, f"[COUNT]\tCounter only needs one bit of input, not {clk.width}"
-        # * Listen when the clock pulses on
-        if type(clk) == pins:
-            assert clk.width == 1, f"[SREG]\t{self.name} clock must be 1 bit, not {clk.width}"
+    def __init__(self, out_len=8, val=0, name=""):
+        super(Counter, self).__init__(out_len=out_len, val=val, name=name)
+        self.reset = None # Initialize data_in
+
+    def wire(self, load=None, reset=None, clk=None):
+        # Reset config
+        if isinstance(reset, pins):
+            assert isinstance(load, pins), f"[COUNT]\t{self.name} load must be a pins object, not {type(load)}"
+            self.load = load
+            self.reset = reset
+        elif reset is not None:
+            raise AssertionError(f"[COUNT]\t{self.name} reset must be a pins object, not {type(reset)}")
+        # Clock config
+        if isinstance(clk, pins):
+            assert clk.width == 1, f"[COUNT]\t{self.name} clock must be 1 bit, not {clk.width}"
             self.clk = clk
             clk.register_callback(lambda: self.update() if self.clk.raw else None)
-        elif type(clk) == CLOCK:
+        elif isinstance(clk, CLOCK):
             clk.sync(self)
+        elif clk is not None:
+            raise AssertionError(f"[COUNT]\t{self.name} clock must a clock or pins object, not {type(clk)}")
 
-    # Increment counter
+    # Increment counter or load value
     def _calculate(self):
-        self._i_val = self._i_val + 1
+        if self.reset:
+            self._i_val = self.load.raw
+        else:
+            self._i_val = self._i_val + 1
 
 # ? D1 Needs latch
 class ShiftRegister(ClockedChip):
@@ -85,12 +108,14 @@ class ShiftRegister(ClockedChip):
         assert isinstance(data, pins), f"[SREG]\t{self.name} must be driven by pins"
         assert data.width == 1, f"[SREG]\t{self.name} requires 1 bit of serial data, not {data.width}"
         self.data = data
-        if type(clk) == pins:
+        if isinstance(clk, pins):
             assert clk.width == 1, f"[SREG]\t{self.name} clock must be 1 bit, not {clk.width}"
             self.clk = clk
             clk.register_callback(lambda: self.update() if self.clk.raw else None)
-        elif type(clk) == CLOCK:
+        elif isinstance(clk, CLOCK):
             clk.sync(self)
+        elif clk is not None:
+            raise AssertionError(f"[SREG]\t{self.name} clock must a clock or pins object, not {type(clk)}")
 
     def _calculate(self):
         # Shift in data
@@ -109,16 +134,19 @@ class FlipFlop(ClockedChip):
         assert data_in.width == self.width, f"[FLFP]\t{self.name} requires {self.width} input(s), not {data_in.width}"
         self.data_in = data_in
         # If a clock is given, make it update automatically
-        if type(clk) == pins:
-            assert clk.width == 1, f"[SREG]\t{self.name} clock must be 1 bit, not {clk.width}"
+        if isinstance(clk, pins):
+            assert clk.width == 1, f"[FLFP]\t{self.name} clock must be 1 bit, not {clk.width}"
             self.clk = clk
             clk.register_callback(lambda: self.update() if self.clk.raw else None)
-        elif type(clk) == CLOCK:
+        elif isinstance(clk, CLOCK):
             clk.sync(self)
+        elif clk is not None:
+            raise AssertionError(f"[FLFP]\t{self.name} clock must a clock or pins object, not {type(clk)}")
+            
 
     def _calculate(self):
         if self.data_in is None:
-            raise OSError("Flipflop was updated with floating input")
+            raise AssertionError(f"[FLFP]\t{self.name} updated with floating input")
         self._i_val = self.data_in.raw
 
 
@@ -131,7 +159,7 @@ class CLOCK():
         self.synced_objects=[]
         for obj in tethers:
             try:    self.sync(obj)
-            except: raise EnvironmentError(f"{obj} does not have a function named update")
+            except: raise AssertionError(f"{obj} does not have a function named update")
 
     def sync(self, obj):
         if isinstance(obj, list):
