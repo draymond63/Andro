@@ -174,7 +174,7 @@ class CHIP():
         self._in_width = val
 
     def __str__(self):
-        return f"{self.name}: {str(self.output)}"
+        return f"{self.name}: {self.output}"
     def __bool__(self):
         return bool(self.raw)
     # * SLICE
@@ -284,8 +284,8 @@ class EEPROM(CHIP):
     # Define output pins and constants
     def __init__(self, addr_len=12, io_len=8, name=""):
         super(EEPROM, self).__init__(io_len, name=name)
-        self.size = (1 << addr_len) - 1 # Measured in bits
-        self.data = [0] * (self.size + 1) # ? EEPROMS generally store 0xFF as default, not 0
+        self.max_addr = (1 << addr_len) - 1 # Measured in bits
+        self.data = [0] * (self.max_addr + 1) # ? EEPROMS generally store 0xFF as default, not 0
         self.addr_width = addr_len
         self.rd_wr = 0
 

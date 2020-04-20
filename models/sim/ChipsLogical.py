@@ -22,9 +22,9 @@ class bitAnd(GATE):
         return isAND
 
 # Uses XNOR to AND to turn on when signals are equivalent
-class COMPARE(CHIP):
+class Comparator(CHIP):
     def __init__(self, in_len, name=""):
-        super(COMPARE, self).__init__(1, name=name)
+        super(Comparator, self).__init__(1, name=name)
         self.in_width = in_len
         self.xnor_gate = XNOR(in_len, name=f"{name} - XNOR")
         and_gate = bitAnd(in_len, name=f"{name} - AND")

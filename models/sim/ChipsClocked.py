@@ -134,7 +134,12 @@ class CLOCK():
             except: raise EnvironmentError(f"{obj} does not have a function named update")
 
     def sync(self, obj):
-        self.synced_objects.append(obj)
+        if isinstance(obj, list):
+            for i in obj:
+                self.synced_objects.append(i)
+        # Otherwise just sync the one
+        else:
+            self.synced_objects.append(obj)
 
     def toggle(self):
         self.state ^= 1
