@@ -1,6 +1,6 @@
 # AUTHOR: Daniel Raymond
 # DATE  : 2020-04-012
-# ABOUT : Neural network using packed bits technique and bitwise operators (88% Accurate, fully quantized, 2.7 img/s)
+# ABOUT : Neural network using packed bits technique and bitwise operators (86% Accurate, fully quantized, 4.1 img/s)
 
 from src.data_packed import x_test, y_test
 from src.model_packed import weights, shape
@@ -123,7 +123,7 @@ def test_model(images, answers, bar=True):
 		pbar.close()
 	return (correct, incorrect, len(images))
 
-length = 50 # max of 50
+length = 100 # max of 100
 print(f"Testing model with {length} image{'s' if length != 1 else ''}")
 correct, incorrect, total = test_model(x_test[:length], y_test[:length], bar=True)
 print("Accuracy: ", correct/total * 100, "%")
