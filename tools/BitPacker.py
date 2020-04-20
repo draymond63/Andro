@@ -13,7 +13,8 @@ from weights_transpose import weights, biases, mnist # ! VSCode Error is incorre
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 from tqdm import tqdm
 
-file_name = 'data_packed'
+data_file_name = 'data_packed'
+model_file_name = 'model_packed'
 
 # * 0's are treated as -1
 def scale(num):
@@ -51,18 +52,19 @@ def save_mnist(name, data, file, scale):
     file.write("]\n\n")
 
 # Save all useful constants in a single file
-def scale_data(name, inc_mnist=True, inc_weights=True, inc_biases=True, inc_shape=True, mnist_len=10000):
+def scale_data(name,  mnist_len=10000):
     with open(f'{src_path}\\{name}.py', 'w') as file:
         # * Mnist data
-        if inc_mnist:
-            print("Saving mnist data")
-            x_test, y_test = mnist[1]
-            # save_mnist("x_train", x_train[], file, scale=True)
-            # save_mnist("y_train", y_train, file, scale=False)
-            save_mnist("x_test", x_test[:mnist_len], file, scale=True)
-            save_mnist("y_test", y_test[:mnist_len], file, scale=False)
+        print("Saving mnist data")
+        x_test, y_test = mnist[1]
+        # save_mnist("x_train", x_train[], file, scale=True)
+        # save_mnist("y_train", y_train, file, scale=False)
+        save_mnist("x_test", x_test[:mnist_len], file, scale=True)
+        save_mnist("y_test", y_test[:mnist_len], file, scale=False)
 
-        # * Weights & Biases
+def scale_model(name, inc_weights=True, inc_biases=True, inc_shape=True):
+    with open(f'{src_path}\\{name}.py', 'w') as file:
+     # * Weights & Biases
         if inc_weights:
             print("Saving weights")
             file.write("weights = [\n")
@@ -105,9 +107,10 @@ def scale_data(name, inc_mnist=True, inc_weights=True, inc_biases=True, inc_shap
                 if layer != weights[-1]: # If it's the last layer, don't print the comma
                     file.write(", ")
             file.write("]\n")
-
+    
 
 if __name__ == "__main__":
     print("Packing mnist, weights, and biases")
-    scale_data(file_name, inc_biases=False, mnist_len=50)
+    scale_data(data_file_name, mnist_len=100)
+    scale_model(model_file_name, inc_biases=False)
     print("Packing succcessful")

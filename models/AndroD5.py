@@ -2,7 +2,8 @@
 # DATE  : 2020-04-013
 # ABOUT : Using chip definitions to create model
 
-from src.data_packed import x_test, y_test, weights, shape
+from src.model_packed import weights, shape
+from src.data_packed import x_test, y_test
 import sim.ChipsClocked as IC
 import sim.ChipsAsync as asyncIC
 import sim.ChipsLogical as logIC

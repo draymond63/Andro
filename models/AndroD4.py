@@ -2,7 +2,8 @@
 # DATE  : 2020-04-012
 # ABOUT : Neural network using packed bits technique and bitwise operators (88% Accurate, fully quantized, 2.7 img/s)
 
-from src.data_packed import x_test, y_test, weights, shape
+from src.data_packed import x_test, y_test
+from src.model_packed import weights, shape
 from tqdm import tqdm
 
 # * STRUCTURE OF WEIGHTS - LAYER : NODE : WEIGHT TO PREVIOUS LAYER
