@@ -72,12 +72,12 @@ class Model():
 
     def _initRDSignals(self):
         # LSB of layer counter choose between EEPROMs
-        self.I1_RD = self.layer_counter[0:1] # 0: READ INPUT2, 1: READ INPUT1
-        self.I1_RD.name = 'I1-Read'
+        self.I2_RD = self.layer_counter[0:1] # 0: READ INPUT1, 1: READ INPUT2 (read from 1 first - it has the image)
+        self.I2_RD.name = 'I2-Read'
         # Other RD single is the opposite of I1-RD
-        I2_RD = asyncIC.NOT(1, name='I2-Read')
-        I2_RD.wire(self.I1_RD)
-        self.I2_RD = I2_RD.output
+        I1_RD = asyncIC.NOT(1, name='I1-Read')
+        I1_RD.wire(self.I2_RD)
+        self.I1_RD = I1_RD.output
         # RD_WR needs to be delayed one clk cycle (HW - Combine these into one flipflop)
         self.I1_RD_delayed = IC.FlipFlop(1, name='I1-Read (#1)')
         self.I1_RD_delayed.wire(self.I1_RD, self.clk)
@@ -134,26 +134,27 @@ class Model():
         addr2 = self.node_counter[0:9]       # 9 pins
         self.w_addr = asyncIC.pins(pins_list=(addr1, addr2, self.layer_counter.output)) # 17 pins
         # Input EEPROMs address deciding
-        self.i_addr_active = asyncIC.pins(pins_list=(addr1, addr2), name='I-ADDR-AC') # 16 pins
+        self.i_addr_active = asyncIC.pins(pins_list=(addr1,), name='I-ADDR-AC') # 16 pins
         self.i_addr_listen = IC.FlipFlop(6, name='I-ADDR-LS') # 6 pins (Flipflop inbetween mux and addr2[3:9] to delay the signal)
         self.i_addr_listen.wire(self.node_counter[3:9], clk=self.clk) # Updates every clock cycle
         # MUXs to select between the two possible address lines
         self.I1_ADDR_MUX = asyncIC.Mux(16, name='I1-ADDR-MUX')
         self.I2_ADDR_MUX = asyncIC.Mux(16, name='I2-ADDR-MUX')
         # ? Shouldn't i_addr_listen be 7 pins to match the number of weight pins used?
-        self.I1_ADDR_MUX.wire(self.i_addr_active, self.i_addr_listen.output, self.I1_RD_delayed)
-        self.I2_ADDR_MUX.wire(self.i_addr_active, self.i_addr_listen.output, self.I2_RD_delayed)
+        self.I1_ADDR_MUX.wire(self.i_addr_listen.output, self.i_addr_active, self.I1_RD_delayed)
+        self.I2_ADDR_MUX.wire(self.i_addr_listen.output, self.i_addr_active, self.I2_RD_delayed)
 
     def _wireEEPROM(self):        
         # MUXs
         sel = self.weight_counter.output[0:3]  # 3 pins (MUX)
         self.W_OUT_MUX.wire(self.WEIGHTS_EEPROM.output, sel)
         self.I1_OUT_MUX.wire(self.INPUT1_EEPROM.output, sel)
+        self.I2_OUT_MUX.wire(self.INPUT2_EEPROM.output, sel)
         ### EEPROMs
         self.WEIGHTS_EEPROM.wire(self.w_addr)
-        # Address switches 'i_addr' to 'self.node_counter // 8' depending on the r/w state
-        self.INPUT1_EEPROM.wire(addr=self.I1_ADDR_MUX.output, data_in=self.I1_SR_OUT, rd_wr=self.I1_RD_delayed, flash=self.input_flash_delayed.output)
-        self.INPUT2_EEPROM.wire(addr=self.I2_ADDR_MUX.output, data_in=self.I2_SR_OUT, rd_wr=self.I2_RD_delayed, flash=self.input_flash_delayed.output)
+        # Address switches 'i_addr' to 'self.node_counter // 8' depending on the r/w state  # * FLIP RD_WR SIGNAL SINCE RD IS ACTIVE LOW
+        self.INPUT1_EEPROM.wire(addr=self.I1_ADDR_MUX.output, data_in=self.I1_SR_OUT, rd_wr=self.I2_RD_delayed, flash=self.input_flash_delayed.output)
+        self.INPUT2_EEPROM.wire(addr=self.I2_ADDR_MUX.output, data_in=self.I2_SR_OUT, rd_wr=self.I1_RD_delayed, flash=self.input_flash_delayed.output)
 
     # * CALCULATION FUNCTIONS (Should be removed in final iteration except predict function)
     # Given an image, returns the value
@@ -167,6 +168,7 @@ class Model():
 
         # self.modelMult()
         self.layerMult()
+        # self.nodeMult()
 
     def modelMult(self):
         while not self.model_done:
@@ -184,8 +186,11 @@ class Model():
     def nodeMult(self):
         while not self.node_done:
             self.clk.pulse()
+        print(self.accum.raw)
         self.accum.value = 0
         self.weight_counter.value = 0
 
 model = Model()
-model.predict(x_test[0]) # (0, 508, 0)
+model.predict(x_test[0], (0, 0, 0)) # (0, 508, 0)
+
+# ! FLASHING IS BROKEN
