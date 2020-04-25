@@ -343,12 +343,6 @@ class EEPROM(CHIP):
         self.addr_width = addr_len
         self.rd_wr = 0
 
-    @property
-    def value(self):
-        return self.output.value
-    @property
-    def raw(self):
-        return self.output.raw
     def binData(self, start, end):
         string = f'{self.name}: '
         for el in self.data[start:end]:
