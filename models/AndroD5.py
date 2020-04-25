@@ -7,7 +7,7 @@ from src.data_packed import x_test, y_test
 import sim.ChipsClocked as IC
 import sim.ChipsAsync as asyncIC
 import sim.ChipsLogical as logIC
-# from tqdm import tqdm
+from tqdm import tqdm
 
 BITS_LAYER = 2
 BITS_NODES = 9
@@ -15,6 +15,7 @@ BITS_WEIGHTS = 7
 
 class Model():
     def __init__(self):
+        self.bar = True # Display variable
         self.clk = IC.CLOCK()
 
         self._initEEPROMs()
@@ -37,8 +38,8 @@ class Model():
         # * Current model max dimensions - # of: layers=2, nodes=512, weights-bytes-in-node=98
         # MINIMUM address bits for current model - 1, 9, 7
         self.WEIGHTS_EEPROM.fill3D(weights, (BITS_LAYER, BITS_NODES, BITS_WEIGHTS))
-        self.INPUT1_EEPROM = asyncIC.EEPROM(addr_len=16, name='INPUT1')
-        self.INPUT2_EEPROM = asyncIC.EEPROM(addr_len=16, name='INPUT2') # ? Storage EEPROM
+        self.INPUT1_EEPROM = asyncIC.EEPROM(addr_len=7, name='INPUT1')
+        self.INPUT2_EEPROM = asyncIC.EEPROM(addr_len=7, name='INPUT2') # ? Storage EEPROM
         # MINIMUM address bits for current model - 2 (784, 512, 10)
         self.SHAPE_EEPROM = asyncIC.EEPROM(addr_len=2, io_len=10, name='SHAPE')
         self.SHAPE_EEPROM.fill3D([[shape]], (0, 0, 2))
@@ -109,8 +110,8 @@ class Model():
         # AND write and clk to know when to shift in
         I1_SR_CLK = asyncIC.AND(1)
         I2_SR_CLK = asyncIC.AND(1)
-        I1_SR_CLK.wire(self.node_done.output, self.I1_RD) # Active when its EEPROM is reading
-        I2_SR_CLK.wire(self.node_done.output, self.I2_RD)
+        I1_SR_CLK.wire(self.node_done.output, self.I2_RD) # Active when its EEPROM is being written to (OTHER EEPROM IS BEING READ FROM)
+        I2_SR_CLK.wire(self.node_done.output, self.I1_RD)
         # Wire input of SRs to LSB of accum
         i = self.accum.width
         MSB = self.accum.output[i-1:i] # Take the MSB
@@ -119,7 +120,7 @@ class Model():
         # Wire input of SRs
         self.I1_SR.wire(quantI.output, I1_SR_CLK.output)
         self.I2_SR.wire(quantI.output, I2_SR_CLK.output)
-        # Flash pins (activates when node_counter % 8 == 0 (3 LSB == 0)) # ! DOESNT WORK YET (FLASHING AT THE WRONG TIME)
+        # Flash pins (activates when node_counter % 8 == 0 (3 LSB == 0))
         self.input_flash = asyncIC.bitNOR(3, name='INPUT-FLASH')
         self.input_flash.wire(self.node_counter[0:3])
         self.input_flash_delayed = IC.FlipFlop(1, name='INPUT-FLASH #1')
@@ -130,17 +131,17 @@ class Model():
 
     def _initAddrRestore(self):
         # Rearrange outputting address lines
-        addr1 = self.weight_counter[3:10]    # 7 pins
-        addr2 = self.node_counter[0:9]       # 9 pins
-        self.w_addr = asyncIC.pins(pins_list=(addr1, addr2, self.layer_counter.output)) # 17 pins
+        weight_incr = self.weight_counter[3:10]    # 7 pins
+        self.w_addr = asyncIC.pins(pins_list=(weight_incr, self.node_counter[0:9], self.layer_counter.output)) # 17 pins
         # Input EEPROMs address deciding
-        self.i_addr_active = asyncIC.pins(pins_list=(addr1,), name='I-ADDR-AC') # 16 pins
-        self.i_addr_listen = IC.FlipFlop(6, name='I-ADDR-LS') # 6 pins (Flipflop inbetween mux and addr2[3:9] to delay the signal)
-        self.i_addr_listen.wire(self.node_counter[3:9], clk=self.clk) # Updates every clock cycle
+        self.i_addr_active = weight_incr
+        self.i_addr_active.name = 'I-ADDR-AC'
+        self.i_addr_listen = IC.FlipFlop(7, name='I-ADDR-LS') # 7 pins (Flipflop inbetween mux and node_counter // 8 to delay the signal)
+        self.i_addr_listen.wire(self.node_counter[3:10], clk=self.clk) # Updates every clock cycle
         # MUXs to select between the two possible address lines
-        self.I1_ADDR_MUX = asyncIC.Mux(16, name='I1-ADDR-MUX')
-        self.I2_ADDR_MUX = asyncIC.Mux(16, name='I2-ADDR-MUX')
-        # ? Shouldn't i_addr_listen be 7 pins to match the number of weight pins used?
+        self.I1_ADDR_MUX = asyncIC.Mux(7, name='I1-ADDR-MUX')
+        self.I2_ADDR_MUX = asyncIC.Mux(7, name='I2-ADDR-MUX')
+        # MUX selection wiring
         self.I1_ADDR_MUX.wire(self.i_addr_listen.output, self.i_addr_active, self.I1_RD_delayed)
         self.I2_ADDR_MUX.wire(self.i_addr_listen.output, self.i_addr_active, self.I2_RD_delayed)
 
@@ -166,31 +167,52 @@ class Model():
         self.node_counter.value = start[1]
         self.weight_counter.value = start[2] 
 
-        # self.modelMult()
-        self.layerMult()
+        self.modelMult()
+        # self.layerMult()
         # self.nodeMult()
+        print(self.INPUT1_EEPROM.data[0:10])
 
     def modelMult(self):
         while not self.model_done:
             self.layerMult()
-
+            self.bar = False
+            
     def layerMult(self):
+        if self.bar:
+            pbar = tqdm(total=self.LAYER_SIZE.raw  - self.node_counter.raw)
+
         while not self.layer_done:
             self.nodeMult()
+            if self.bar:
+                pbar.update(n=1)
         
-        self.SHAPE_EEPROM.output.value = 10 # Temporarily change value
+        if self.layer_counter.raw == 1: # On the first iteration, load 10 temporarily
+            self.SHAPE_EEPROM.output.value = 10
         self.clk.pulse() # One more clock pulse and the rd/wr changes
-        self.node_counter.value = 0 # Reset node
+        self.accum.value = 0 # Reset (This is needed because of the extra clock pulse?)
+        self.weight_counter.value = 0
+
+        self.node_counter.value = 0
         self.SHAPE_EEPROM.output.value = 0 # Notify this the last layer
-        
+
+        self.INPUT2_EEPROM.data[63] >>= 1 # ! Correct value because it's wrong
+
+        if self.bar:
+            pbar.close()
+
     def nodeMult(self):
         while not self.node_done:
             self.clk.pulse()
-        print(self.accum.raw)
+        
+        # ! Layer goes to 2 for some dumbass reason (delay layer_counter incrementing)
+        if self.layer_counter.raw >= 1 and self.node_counter != 511: 
+            print(self.node_counter.raw - 1, self.accum.raw) # node increments then we print, so - 1
+
         self.accum.value = 0
         self.weight_counter.value = 0
 
 model = Model()
 model.predict(x_test[0], (0, 0, 0)) # (0, 508, 0)
 
-# ! FLASHING IS BROKEN
+print('ANSWER: ', y_test[0])
+# ! Last 8 nodes are packed incorrectly in first layer 87 != 174

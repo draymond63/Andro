@@ -59,7 +59,7 @@ def model(image):
 				data = input_layer[EEPROM_addr]              & ( 1 << bit_index )
 				# Multiply and add
 				mult = XNOR(weight, data)
-				accum = UpDown(accum, mult)
+				accum = UpDown(accum, mult) # * Breakpoint here to match D5
 			# Save node in some form
 			if not last_layer:
 				# Quantize (Grab MSB)

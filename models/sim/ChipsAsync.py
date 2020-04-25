@@ -415,5 +415,5 @@ class EEPROM(CHIP):
 
     def update(self):
         if self.flash and self.rd_wr:
-            print(f"FLASHING {self.name} with {self.data_in} at {self.addr.raw}")
+            # print(f"FLASHING {self.name} with {self.data_in} at {self.addr.raw}")
             self.data[self.addr.raw] = self.data_in.raw
