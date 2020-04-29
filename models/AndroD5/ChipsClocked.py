@@ -2,11 +2,7 @@
 # DATE  : 2020-04-07
 # ABOUT : Initial software implementation of all the chips used in the circuit - used in AndroD5
 
-if __name__ == "__main__":
-    from ChipsAsync import pins, CHIP
-else:
-    # Package is in sim when it is not the main (Ignore error)
-    from sim.ChipsAsync import pins, CHIP
+from ChipsAsync import pins, CHIP
 
 # ********************************** CLOCK-SYNCED BASE CLASS
 class ClockedChip(CHIP):
@@ -155,6 +151,7 @@ class FlipFlop(ClockedChip):
 class CLOCK():
     def __init__(self, tethers=[]):
         self.state = 0
+        self.name = 'CLOCK'
         self.output = pins(1)
         self.synced_objects=[]
         for obj in tethers:

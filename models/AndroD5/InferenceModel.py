@@ -4,9 +4,9 @@
 
 from src.model_packed import weights, shape
 from src.data_packed import x_test, y_test
-import sim.ChipsClocked as IC
-import sim.ChipsAsync as asyncIC
-import sim.ChipsLogical as logIC
+import ChipsClocked as IC
+import ChipsAsync as asyncIC
+import ChipsLogical as logIC
 from tqdm import tqdm
 
 BITS_LAYER = 2

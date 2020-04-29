@@ -252,9 +252,9 @@ class bitGate(GATE):
     def __init__(self, gate_name, expression, in_len, name=""):
         super(bitGate, self).__init__(gate_name, expression, 1, name)
         self.in_width = in_len
-class bitAnd(bitGate):
+class bitAND(bitGate):
     def __init__(self, in_len=1, name=""):
-        super(bitAnd, self).__init__("bAND", self.expr, in_len, name)
+        super(bitAND, self).__init__("bAND", self.expr, in_len, name)
     def expr(self, i):
         # Make sure all of input is on
         for a in self.a.value:
@@ -370,6 +370,7 @@ class EEPROM(CHIP):
             assert rd_wr.width == 1, f"[EEPROM]\t{self.name} needs 1 pin for rd/wr, but got {rd_wr.width}"
             assert flash.width == 1, f"[EEPROM]\t{self.name} needs 1 pin for flash, but got {flash.width}"
             flash.register_callback(self.update) # Listen to flash
+            rd_wr.register_callback(self.display) # Listen to rd/wr
             # Save pins
             self.data_in = data_in
             self.flash = flash
@@ -377,8 +378,11 @@ class EEPROM(CHIP):
 
     # * Assumes data is three dimensional - LAYER : NODE : WEIGHT
     def fill3D(self, data, addr_bits_per_dim):
-        assert len(addr_bits_per_dim) == 3,  f"[EEPROM]\t{self.name} fill3D requires data is 3 dimensional"
-        assert sum(addr_bits_per_dim) <= self.addr_width,  f"[EEPROM]\t{self.name} addr width {self.addr_width} does not match those given to fill3D()"
+        assert len(addr_bits_per_dim) == 3, f"[EEPROM]\t{self.name} fill3D requires addr_bits_per_dim has 3 values"
+        assert sum(addr_bits_per_dim) <= self.addr_width, f"[EEPROM]\t{self.name} addr width {self.addr_width} does not match those given to fill3D"
+        assert isinstance(data, list), f"[EEPROM]\t{self.name} fill3D requires data is 3 dimensional, not type {type(data)}"
+        assert isinstance(data[0], list), f"[EEPROM]\t{self.name} fill3D requires data is 3 dimensional, not 1"
+        assert isinstance(data[0][0], list), f"[EEPROM]\t{self.name} fill3D requires data is 3 dimensional, not 2"
         
         layer_size = 1 << addr_bits_per_dim[1]
         weight_size = 1 << addr_bits_per_dim[2]

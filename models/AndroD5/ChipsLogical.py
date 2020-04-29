@@ -2,11 +2,7 @@
 # DATE  : 2020-04-014
 # ABOUT : Logical combinations that are a combination of multiple ICs
 
-if __name__ == "__main__":
-    from ChipsAsync import pins, XNOR, bitAnd, CHIP
-else:
-    # Package is in sim when it is not the main (Ignore error)
-    from sim.ChipsAsync import pins, XNOR, bitAnd, CHIP
+from ChipsAsync import pins, XNOR, bitAND, CHIP
 
 # Uses XNOR to AND to turn on when signals are equivalent # ! Make purely python to increase efficiency
 class Comparator(CHIP):
@@ -14,7 +10,7 @@ class Comparator(CHIP):
         super(Comparator, self).__init__(1, name=name)
         self.in_width = in_len
         self.xnor_gate = XNOR(in_len, name=f"{name} - XNOR")
-        and_gate = bitAnd(in_len, name=f"{name} - AND")
+        and_gate = bitAND(in_len, name=f"{name} - AND")
         
         # Internal wiring
         and_gate.wire(self.xnor_gate.output)
