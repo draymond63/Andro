@@ -24,6 +24,7 @@ class Model():
         self._initSrRestore()
         self._initAddrRestore()
         self._wireEEPROM()
+        self._finalEEPROM()
 
         self.clk.sync([
             self.accum,
@@ -157,20 +158,37 @@ class Model():
         self.INPUT1_EEPROM.wire(addr=self.I1_ADDR_MUX.output, data_in=self.I1_SR_OUT, rd_wr=self.I2_RD_delayed, flash=self.input_flash_delayed.output)
         self.INPUT2_EEPROM.wire(addr=self.I2_ADDR_MUX.output, data_in=self.I2_SR_OUT, rd_wr=self.I1_RD_delayed, flash=self.input_flash_delayed.output)
 
+    def _finalEEPROM(self):
+        self.FINAL_EEPROM = asyncIC.EEPROM(addr_len=10, io_len=10, name='FINAL')
+        # Rd/wr signal
+        self.model_not_done = asyncIC.NOT(name='NOT M-DONE')
+        self.model_not_done.wire(self.model_done.output)
+        # Delayed address
+        self.node_counter_delayed = IC.FlipFlop(10, name='N-COUNT #1')
+        self.node_counter_delayed.wire(self.node_counter.output, clk=self.clk)
+        # Wiring
+        self.FINAL_EEPROM.wire(self.node_counter_delayed.output, self.accum.output, self.model_not_done.output, self.node_done.output)
+
     # * CALCULATION FUNCTIONS (Should be removed in final iteration except predict function)
     # Given an image, returns the value
     def predict(self, x, start=(0, 0, 0)):
         self.INPUT1_EEPROM.fill(x)
-        self.SHAPE_EEPROM
 
-        self.layer_counter.value = start[0] # Start at a later part in the sim if requested
+        # self.INPUT2_EEPROM.data = [
+        #     31, 202, 236, 107, 15, 75, 61, 199, 245, 245, 25, 243, 122, 39, 82, 140, 
+        #     230, 154, 75, 207, 198, 29, 16, 224, 111, 86, 175, 217, 21, 26, 207, 183, 
+        #     182, 178, 51, 61, 104, 54, 166, 203, 60, 116, 155, 12, 124, 186, 187, 205, 
+        #     151, 101, 21, 95, 198, 12, 33, 175, 228, 163, 174, 223, 87, 188, 36, 43
+        # ]
+        self.layer_counter.value = start[0]
         self.node_counter.value = start[1]
         self.weight_counter.value = start[2] 
 
         self.modelMult()
         # self.layerMult()
         # self.nodeMult()
-        print(self.INPUT1_EEPROM.data[0:10])
+        print('FINAL')
+        print(self.FINAL_EEPROM.data[0:10])
 
     def modelMult(self):
         while not self.model_done:
@@ -195,7 +213,7 @@ class Model():
         self.node_counter.value = 0
         self.SHAPE_EEPROM.output.value = 0 # Notify this the last layer
 
-        self.INPUT2_EEPROM.data[63] >>= 1 # ! Correct value because it's wrong
+        self.INPUT2_EEPROM.data[63] >>= 1 # ! Correct value because it's wrong (due to faulty sim)
 
         if self.bar:
             pbar.close()
@@ -205,14 +223,13 @@ class Model():
             self.clk.pulse()
         
         # ! Layer goes to 2 for some dumbass reason (delay layer_counter incrementing)
-        if self.layer_counter.raw >= 1 and self.node_counter != 511: 
+        if self.layer_counter.raw >= 1 and self.node_counter.raw <= 100: 
             print(self.node_counter.raw - 1, self.accum.raw) # node increments then we print, so - 1
 
         self.accum.value = 0
         self.weight_counter.value = 0
 
 model = Model()
-model.predict(x_test[0], (0, 0, 0)) # (0, 508, 0)
+model.predict(x_test[0], (1, 0, 0)) # (0, 508, 0)
 
 print('ANSWER: ', y_test[0])
-# ! Last 8 nodes are packed incorrectly in first layer 87 != 174

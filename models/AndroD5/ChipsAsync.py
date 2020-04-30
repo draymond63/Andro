@@ -459,7 +459,7 @@ class EEPROM(CHIP):
         if self.rd_wr:
             self.output.value = 0
         else:
-            assert self.addr.raw < len(self.data), f"[EEPROM]\t{self.name} Address lines achieved a value of {self.addr.raw}, when max is {len(self.data)}"
+            assert self.addr.raw < len(self.data), f"[EEPROM]\t{self.name} Address lines achieved a value of {self.addr.raw}, when max is {len(self.data) - 1}"
             self.output.value = self.data[self.addr.raw]
 
     def update(self):
