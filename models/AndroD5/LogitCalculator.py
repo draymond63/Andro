@@ -1,12 +1,11 @@
 # AUTHOR: Daniel Raymond
 # DATE  : 2020-04-013
-# ABOUT : Using chip definitions to create model
+# ABOUT : Main body -> Takes input image and calculates logits
 
 from src.model_packed import weights, shape
 from src.data_packed import x_test, y_test
 import ChipsClocked as IC
 import ChipsAsync as asyncIC
-import ChipsLogical as logIC
 from tqdm import tqdm
 
 BITS_LAYER = 2
@@ -38,11 +37,12 @@ class Model():
         # * Current model max dimensions - # of: layers=2, nodes=512, weights-bytes-in-node=98
         # MINIMUM address bits for current model - 1, 9, 7
         self.WEIGHTS_EEPROM.fill3D(weights, (BITS_LAYER, BITS_NODES, BITS_WEIGHTS))
+        # Alternating data EEPROMs
         self.INPUT1_EEPROM = asyncIC.EEPROM(addr_len=7, name='INPUT1')
         self.INPUT2_EEPROM = asyncIC.EEPROM(addr_len=7, name='INPUT2') # ? Storage EEPROM
         # MINIMUM address bits for current model - 2 (784, 512, 10)
         self.SHAPE_EEPROM = asyncIC.EEPROM(addr_len=2, io_len=10, name='SHAPE')
-        self.SHAPE_EEPROM.fill3D([[shape]], (0, 0, 2))
+        self.SHAPE_EEPROM.fill(shape)
         self.INPUT_SIZE = IC.FlipFlop(10, val=784, name='SHAPE_WEIGHT_COUNT')
         self.LAYER_SIZE = IC.FlipFlop(10, val=512, name='SHAPE_NODE_COUNT')
 
@@ -52,9 +52,9 @@ class Model():
         self.node_counter = IC.Counter(10, name='N-COUNT')
         self.weight_counter = IC.Counter(10, name='W-COUNT')
         # * Comparison outputs to notify when to increment
-        self.model_done = logIC.Comparator(10, name='M-DONE')
-        self.layer_done = logIC.Comparator(10, name='L-DONE')
-        self.node_done = logIC.Comparator(10, name='N-DONE')
+        self.model_done = asyncIC.IdentityComparator(10, name='M-DONE')
+        self.layer_done = asyncIC.IdentityComparator(10, name='L-DONE')
+        self.node_done = asyncIC.IdentityComparator(10, name='N-DONE')
         # Wire to inputs
         zero = asyncIC.pins(10, name='GND')
         self.model_done.wire(self.LAYER_SIZE.output, zero) # HW - default in shape EEPROM is 0xFF, not ground
@@ -160,7 +160,7 @@ class Model():
     # * CALCULATION FUNCTIONS (Should be removed in final iteration except predict function)
     # Given an image, returns the value
     def predict(self, x, start=(0, 0, 0)):
-        self.INPUT1_EEPROM.fill3D([[x]], (0, 0, 7))
+        self.INPUT1_EEPROM.fill(x)
         self.SHAPE_EEPROM
 
         self.layer_counter.value = start[0] # Start at a later part in the sim if requested

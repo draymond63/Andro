@@ -330,7 +330,48 @@ class Mux(CHIP):
         else:
             self.raw = self.a.raw
 
+class IdentityComparator(CHIP):
+    def __init__(self, in_len, name=""):
+        super(IdentityComparator, self).__init__(1, name=name)
+        self.in_width = in_len
 
+    def wire(self, a, b):
+        assert isinstance(a, pins) and isinstance(b, pins), f"[ICMP]\t{self.name} inputs must be of type pin"
+        assert a.width == self.in_width and b.width == self.in_width, f"[ICMP]\t{self.name} input size expected to be {self.in_width}"
+        self.a = a
+        self.b = b
+        self.a.register_callback(self.update)
+        self.b.register_callback(self.update)
+        self.update()
+
+    def update(self):
+        if self.a.raw == self.b.raw:
+            self.output.value = 1
+        else:
+            self.output.value = 0
+
+# Has three output bits     0: a > b    1: a = b    2: a < b
+class MagnitudeComparator(CHIP):
+    def __init__(self, in_len, name=""):
+        super(MagnitudeComparator, self).__init__(3, name=name)
+        self.in_width = in_len
+
+    def wire(self, a, b):
+        assert isinstance(a, pins) and isinstance(b, pins), f"[MCMP]\t{self.name} inputs must be of type pin"
+        assert a.width == self.in_width and b.width == self.in_width, f"[MCMP]\t{self.name} input size expected to be {self.in_width}"
+        self.a = a
+        self.b = b
+        self.a.register_callback(self.update)
+        self.b.register_callback(self.update)
+        self.update()
+
+    def update(self):
+        if self.a.raw > self.b.raw:
+            self.output.value = [1, 0, 0]
+        elif self.a.raw < self.b.raw:
+            self.output.value = [0, 0, 1]
+        else:
+            self.output.value = [0, 1, 0]
 
 # ******************************************************** EEPROM DEFINITION
 # ? D1 needs to have i/o pins together
@@ -338,8 +379,9 @@ class EEPROM(CHIP):
     # Define output pins and constants
     def __init__(self, addr_len=12, io_len=8, name=""):
         super(EEPROM, self).__init__(io_len, name=name)
+        self.DEFAULT_VALUE = 0 # ? EEPROMS generally store 0xFF as default, not 0
         self.max_addr = (1 << addr_len) - 1 # Measured in bits
-        self.data = [0] * (self.max_addr + 1) # ? EEPROMS generally store 0xFF as default, not 0
+        self.data = [self.DEFAULT_VALUE] * (self.max_addr + 1)
         self.addr_width = addr_len
         self.rd_wr = 0
 
@@ -386,7 +428,7 @@ class EEPROM(CHIP):
         
         layer_size = 1 << addr_bits_per_dim[1]
         weight_size = 1 << addr_bits_per_dim[2]
-        emptyNode = [0] * weight_size # Doesn't matter that this is pass by reference since all the values are getting inserted into self.data  
+        emptyNode = [self.DEFAULT_VALUE] * weight_size # Doesn't matter that this is pass by reference since all the values are getting inserted into self.data  
 
         # Pad data with zeros
         for layer in data:
@@ -403,6 +445,15 @@ class EEPROM(CHIP):
                 for eight_weights in node:
                     self.data[index] = eight_weights
                     index += 1
+
+    def fill(self, data):
+        # Make data 3D
+        if not isinstance(data, list): data = [data]
+        if not isinstance(data[0], list): data = [data]
+        if not isinstance(data[0][0], list): data = [data]
+
+        self.fill3D(data, (0, 0, self.addr_width))
+
     
     def display(self):
         if self.rd_wr:

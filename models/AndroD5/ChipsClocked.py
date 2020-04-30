@@ -57,7 +57,7 @@ class UpDownCounter(ClockedChip):
         elif isinstance(clk, CLOCK):
             clk.sync(self)
         elif clk is not None:
-            raise AssertionError(f"[UPDWN]\t{self.name} clock must a clock or pins object, not {type(clk)}")
+            raise AttributeError(f"[UPDWN]\t{self.name} clock must a clock or pins object, not {type(clk)}")
 
     def _calculate(self):
         try:
@@ -79,7 +79,7 @@ class Counter(ClockedChip):
             self.load = load
             self.reset = reset
         elif reset is not None:
-            raise AssertionError(f"[COUNT]\t{self.name} reset must be a pins object, not {type(reset)}")
+            raise AttributeError(f"[COUNT]\t{self.name} reset must be a pins object, not {type(reset)}")
         # Clock config
         if isinstance(clk, pins):
             assert clk.width == 1, f"[COUNT]\t{self.name} clock must be 1 bit, not {clk.width}"
@@ -88,7 +88,7 @@ class Counter(ClockedChip):
         elif isinstance(clk, CLOCK):
             clk.sync(self)
         elif clk is not None:
-            raise AssertionError(f"[COUNT]\t{self.name} clock must a clock or pins object, not {type(clk)}")
+            raise AttributeError(f"[COUNT]\t{self.name} clock must a clock or pins object, not {type(clk)}")
 
     # Increment counter or load value
     def _calculate(self):
@@ -111,7 +111,7 @@ class ShiftRegister(ClockedChip):
         elif isinstance(clk, CLOCK):
             clk.sync(self)
         elif clk is not None:
-            raise AssertionError(f"[SREG]\t{self.name} clock must a clock or pins object, not {type(clk)}")
+            raise AttributeError(f"[SREG]\t{self.name} clock must a clock or pins object, not {type(clk)}")
 
     def _calculate(self):
         # Shift in data
@@ -137,12 +137,11 @@ class FlipFlop(ClockedChip):
         elif isinstance(clk, CLOCK):
             clk.sync(self)
         elif clk is not None:
-            raise AssertionError(f"[FLFP]\t{self.name} clock must a clock or pins object, not {type(clk)}")
-            
+            raise AttributeError(f"[FLFP]\t{self.name} clock must a clock or pins object, not {type(clk)}")    
 
     def _calculate(self):
         if self.data_in is None:
-            raise AssertionError(f"[FLFP]\t{self.name} updated with floating input")
+            raise AttributeError(f"[FLFP]\t{self.name} updated with floating input")
         self._i_val = self.data_in.raw
 
 
@@ -156,7 +155,7 @@ class CLOCK():
         self.synced_objects=[]
         for obj in tethers:
             try:    self.sync(obj)
-            except: raise AssertionError(f"{obj} does not have a function named update")
+            except: raise AttributeError(f"{obj} does not have a function named update")
 
     def sync(self, obj):
         if isinstance(obj, list):
