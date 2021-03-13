@@ -181,6 +181,9 @@ class CHIP():
     def __getitem__(self, k):
         _sliced_pins = self.output.__getitem__(k)
         return _sliced_pins
+    
+    def unwire_output(self):
+        self.output._callbacks = []
 
 # ********************************** GATE DEFINITIONS
 class GATE(CHIP):

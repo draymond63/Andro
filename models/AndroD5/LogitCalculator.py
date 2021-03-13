@@ -12,7 +12,7 @@ BITS_LAYER = 2
 BITS_NODES = 9
 BITS_WEIGHTS = 7
 
-class Model():
+class LogitCalculator():
     def __init__(self):
         self.bar = True # Display variable
         self.clk = IC.CLOCK()
@@ -98,11 +98,11 @@ class Model():
         self.I_TOT_MUX = asyncIC.Mux(1, name='Final-Input-Mux')
         self.I_TOT_MUX.wire(self.I2_OUT_MUX.output, self.I1_OUT_MUX.output, self.I1_RD)
         # MULTIPLIER
-        self.XNOR = asyncIC.XNOR(name='Multiplier')
-        self.XNOR.wire(self.W_OUT_MUX.output, self.I_TOT_MUX.output)
+        self.mult = asyncIC.XNOR(name='Multiplier')
+        self.mult.wire(self.W_OUT_MUX.output, self.I_TOT_MUX.output)
         # ADDER
         self.accum = IC.UpDownCounter(10, name='Accum')
-        self.accum.wire(self.XNOR.output)
+        self.accum.wire(self.mult.output)
 
     def _initSrRestore(self):
         # SRs
@@ -169,8 +169,13 @@ class Model():
         # Wiring
         self.FINAL_EEPROM.wire(self.node_counter_delayed.output, self.accum.output, self.model_not_done.output, self.node_done.output)
 
+    # * PROPERTIES TO CONNECT TO OTHER BODIES
+    @property
+    def done(self):
+        return self.model_done.output
+
     # * CALCULATION FUNCTIONS (Should be removed in final iteration except predict function)
-    # Given an image, returns the value
+    # Given an image, stores logits in FINAL_EEPROM
     def predict(self, x, start=(0, 0, 0)):
         self.INPUT1_EEPROM.fill(x)
 
@@ -185,10 +190,9 @@ class Model():
         self.weight_counter.value = start[2] 
 
         self.modelMult()
-        # self.layerMult()
-        # self.nodeMult()
-        print('FINAL')
-        print(self.FINAL_EEPROM.data[0:10])
+
+        # print('FINAL')
+        # print(self.FINAL_EEPROM.data[0:10])
 
     def modelMult(self):
         while not self.model_done:
@@ -223,13 +227,12 @@ class Model():
             self.clk.pulse()
         
         # ! Layer goes to 2 for some dumbass reason (delay layer_counter incrementing)
-        if self.layer_counter.raw >= 1 and self.node_counter.raw <= 100: 
-            print(self.node_counter.raw - 1, self.accum.raw) # node increments then we print, so - 1
+        # if self.layer_counter.raw >= 1 and self.node_counter.raw <= 100: 
+        #     print(self.node_counter.raw - 1, self.accum.raw) # node increments then we print, so - 1
 
         self.accum.value = 0
         self.weight_counter.value = 0
 
-model = Model()
-model.predict(x_test[0], (1, 0, 0)) # (0, 508, 0)
-
-print('ANSWER: ', y_test[0])
+# model = LogitCalculator()
+# model.predict(x_test[0], (0, 0, 0)) # (0, 508, 0)
+# print('ANSWER: ', y_test[0])
