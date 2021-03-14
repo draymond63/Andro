@@ -7,10 +7,11 @@ parameter LEN = 5;
 
 reg clk = 0;
 reg reset = 0;
-wire [LEN - 1:0] count;
-wire ovf;
+wire [LEN - 1:0] count [0:1];
+wire ovf [0:1];
 
-counter #(.DATA_WIDTH(LEN)) out (clk, reset, count, ovf);
+counter #(.DATA_WIDTH(LEN)) c_0 (clk, reset, count[0], ovf[0]);
+counter #(.DATA_WIDTH(LEN - 1)) c_1 (clk, reset, count[1], ovf[1]);
 
 initial begin
 	$dumpfile("counter_tb.vcd");
