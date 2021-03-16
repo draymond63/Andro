@@ -8,7 +8,8 @@ module nn_counter (
 	model_done,
 	mem_select
 );	
-	parameter LOGIT_NUM = 10;
+	parameter INPUT_DIM = 10;
+	parameter OUTPUT_DIM = 10;
 	localparam WEIGHT_WIDTH = 8;
 	localparam NODE_WIDTH = 8;
 	localparam LAYER_WIDTH = 3;
@@ -47,12 +48,12 @@ module nn_counter (
 	// ! REPLACE WITH FILE READ
 	initial begin
 		shape_info[6] = 0;
-		shape_info[5] = LOGIT_NUM;
+		shape_info[5] = OUTPUT_DIM;
 		shape_info[4] = 6;
 		shape_info[3] = 5;
 		shape_info[2] = 4;
 		shape_info[1] = 3;
-		shape_info[0] = 2;
+		shape_info[0] = INPUT_DIM;
 	end
 
 	always @(posedge clk) begin
