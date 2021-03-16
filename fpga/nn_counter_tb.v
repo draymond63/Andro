@@ -14,6 +14,10 @@ module nn_counter_tb;
 			clk ^= 1;
 			#1;
 		end
+		// for (integer i = 0; i < 1000; i++) begin
+		// 	clk ^= 1;
+		// 	#1;
+		// end
 		$display("Test Complete");
 	end
 
